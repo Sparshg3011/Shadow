@@ -43,6 +43,7 @@ export function useAgent(): UseAgent {
   const talkTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
+    if (!window.shadow) return
     return window.shadow.onEvent((ev: AgentEvent) => {
       switch (ev.type) {
         case 'status':
@@ -81,11 +82,11 @@ export function useAgent(): UseAgent {
     setLiveShot(null)
     setRunning(true)
     setState('thinking')
-    taskId.current = await window.shadow.runTask(text)
+    taskId.current = (await window.shadow?.runTask(text)) ?? null
   }, [])
 
   const cancel = useCallback(() => {
-    if (taskId.current) window.shadow.cancel(taskId.current)
+    if (taskId.current) window.shadow?.cancel(taskId.current)
     setRunning(false)
     setState('idle')
   }, [])

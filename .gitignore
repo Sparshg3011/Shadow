@@ -16,10 +16,11 @@ out/
 .vite/
 *.log
 
-# OS / editor
+# OS / editor / tooling
 .DS_Store
 .idea/
 .vscode/
+.claude/
 
 # Runtime artifacts
 /tmp/
