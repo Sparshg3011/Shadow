@@ -8,7 +8,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-read_env() { grep -E "^$1=" .env 2>/dev/null | tail -1 | cut -d= -f2- | tr -d ' \r'; }
+# Read a key from .env; tolerate a missing key (grep returns non-zero under set -e/pipefail).
+read_env() { grep -E "^$1=" .env 2>/dev/null | tail -1 | cut -d= -f2- | tr -d ' \r' || true; }
 
 PORT="$(read_env SHADOW_HTTP_PORT)"; PORT="${PORT:-8765}"
 TOKEN="$(read_env SHADOW_HTTP_TOKEN)"
