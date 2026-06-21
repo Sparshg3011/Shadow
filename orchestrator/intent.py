@@ -11,8 +11,10 @@ from openai import OpenAI
 # these names so the router stays predictable.
 INTENTS: dict[str, str] = {
     "amazon_grocery_order": (
-        "User wants to buy/order grocery or household products from Amazon, "
-        "or asks for purchasable product links/prices for groceries."
+        "User wants to buy/find a product on Amazon, or asks for purchasable "
+        "product links/prices. Includes plainly-phrased wants like 'I want "
+        "milk', 'find me a water bottle', or 'order eggs' — anything that "
+        "should return shoppable Amazon product links."
     ),
     "unknown": "Anything that does not match another intent.",
 }
