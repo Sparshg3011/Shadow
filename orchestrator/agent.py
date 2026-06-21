@@ -12,8 +12,11 @@ Run:  python -m orchestrator.agent
 """
 
 import asyncio
+import json
 import os
 from uuid import uuid4
+
+import httpx
 
 from dotenv import load_dotenv
 from uagents import Agent, Context, Protocol
@@ -39,6 +42,7 @@ load_dotenv()
 PORT = int(os.getenv("PORT", "8000"))
 AGENT_SEED = os.getenv("AGENT_SEED", "shadow-orchestrator-secret-seed-change-me")
 DOWNSTREAM_TIMEOUT = float(os.getenv("DOWNSTREAM_TIMEOUT", "45"))
+FALLBACK_API_URL = os.getenv("FALLBACK_API_URL", "")
 
 agent = Agent(
     name="shadow-orchestrator",
@@ -185,6 +189,29 @@ def _format_chat(resp: OrchestrateResponse) -> str:
 
 
 # --------------------------------------------------------------------------- #
+# Fallback API (unknown intents)
+# --------------------------------------------------------------------------- #
+async def _call_fallback(query: str) -> str | None:
+    """POST query to FALLBACK_API_URL; returns the response text or None on failure."""
+    if not FALLBACK_API_URL:
+        return None
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                FALLBACK_API_URL,
+                json={"query": query},
+                headers={"ngrok-skip-browser-warning": "1"},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            if isinstance(data, dict):
+                return data.get("message") or data.get("response") or data.get("answer") or json.dumps(data)
+            return str(data)
+    except Exception:
+        return None
+
+
+# --------------------------------------------------------------------------- #
 # REST channel (middleware inbound)
 # --------------------------------------------------------------------------- #
 @agent.on_rest_post("/classify", OrchestrateRequest, OrchestrateResponse)
@@ -196,14 +223,15 @@ async def handle_classify(
     session_id = str(uuid4())
 
     if not downstream_for(intent):
+        fallback_text = await _call_fallback(req.query)
         return OrchestrateResponse(
             session_id=session_id,
             intent=intent,
-            status="unknown_intent",
-            message="No downstream skill matched this request.",
+            status="ok" if fallback_text else "unknown_intent",
+            message=fallback_text or "No downstream skill matched this request.",
             products=None,
             args=args or None,
-            agent=None,
+            agent="fallback" if fallback_text else None,
         )
 
     ctx.logger.info("REST classify | intent=%s | query=%r", intent, query)
