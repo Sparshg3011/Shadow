@@ -27,7 +27,7 @@ export function Chat({ messages }: Props) {
   if (messages.length === 0) {
     return (
       <div className="chat chat-empty">
-        <p className="chat-hello">Hi, I'm Sunny 👋</p>
+        <p className="chat-hello">Hi, I'm Clara 👋</p>
         <p className="chat-sub">
           Tell me what you'd like to do — like “open Safari and check the weather” — or just say
           hello. Tap the microphone to talk, or type below.
@@ -42,7 +42,7 @@ export function Chat({ messages }: Props) {
         <div key={m.id} className={`msg msg-${m.role}`}>
           {m.pending ? (
             <div className="bubble bubble-assistant">
-              <span className="typing" aria-label="Sunny is thinking">
+              <span className="typing" aria-label="Clara is thinking">
                 <i />
                 <i />
                 <i />

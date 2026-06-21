@@ -1,6 +1,6 @@
-import { Sunny, type SunnyEmotion } from './Sunny'
+import { Clara, type ClaraEmotion } from './Clara'
 
-const ALL: SunnyEmotion[] = [
+const ALL: ClaraEmotion[] = [
   'idle',
   'listening',
   'thinking',
@@ -21,7 +21,7 @@ export function EmotionGallery() {
     <div className="gallery">
       {ALL.map((e) => (
         <div className="gallery-cell" key={e}>
-          <Sunny emotion={e} />
+          <Clara emotion={e} />
           <span className="gallery-label">{e}</span>
         </div>
       ))}

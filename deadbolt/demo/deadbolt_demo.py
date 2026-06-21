@@ -1,4 +1,4 @@
-"""deadbolt_demo.py — the full Deadbolt loop in one process.
+"""deadbolt_demo.py — the full Agent Place loop in one process.
 
 A food agent (PLANNER) proposes a cart; it never executes. A client receives the
 proposal, runs it through the DEFLECTOR, and any irreversible action is FROZEN at

@@ -1,6 +1,6 @@
 """In-memory views the dashboard reads: the route registry + a live intent feed.
 
-Deadbolt invariant: the orchestrator is the only writer. Agents are untrusted
+Agent Place invariant: the orchestrator is the only writer. Agents are untrusted
 planners; the dashboard reads *derived* state (what we routed, what we saw) — it
 never lets an agent write here.
 

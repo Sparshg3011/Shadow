@@ -13,7 +13,7 @@ export function TaskCard({ task }: Props) {
     <div className={`task-card task-${task.status}`}>
       {active && (
         <div className="control-banner">
-          <span className="dot" aria-hidden="true" /> Sunny is using your computer…
+          <span className="dot" aria-hidden="true" /> Clara is using your computer…
         </div>
       )}
 

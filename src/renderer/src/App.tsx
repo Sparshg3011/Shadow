@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useChat } from './hooks/useChat'
 import { useHelpMode } from './hooks/useHelpMode'
 import { useVoice } from './voice/useVoice'
-import { Sunny, type SunnyEmotion } from './components/Sunny'
+import { Clara, type ClaraEmotion } from './components/Clara'
 import { HelpDial } from './components/HelpDial'
 import { Chat } from './components/Chat'
 import { Composer } from './components/Composer'
@@ -17,11 +17,11 @@ export default function App() {
   }
 
   const { mode, setMode } = useHelpMode()
-  // The chat panel is hidden until the user clicks Sunny.
+  // The chat panel is hidden until the user clicks Clara.
   const [open, setOpen] = useState(false)
 
   // Voice and chat are mutually dependent (voice speaks what chat says; chat
-  // receives what voice hears), so a ref breaks the cycle. One toggle = Sunny
+  // receives what voice hears), so a ref breaks the cycle. One toggle = Clara
   // both listens AND talks.
   const sendRef = useRef<(text: string) => void>(() => {})
   const voice = useVoice((text) => sendRef.current(text))
@@ -72,7 +72,7 @@ export default function App() {
     if (moved < DRAG_SLOP) setOpen((o) => !o) // it was a click, not a drag
   }, [])
 
-  const emotion: SunnyEmotion = useMemo(() => {
+  const emotion: ClaraEmotion = useMemo(() => {
     if (voice.speaking) return 'talking'
     if (voice.listening && !chat.running) return 'listening'
     if (chat.state === 'thinking') return 'thinking'
@@ -102,12 +102,12 @@ export default function App() {
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
-          title={open ? 'Click to hide the chat' : 'Click to chat with Sunny'}
+          title={open ? 'Click to hide the chat' : 'Click to chat with Clara'}
           role="button"
           aria-label={open ? 'Hide chat' : 'Open chat'}
           aria-expanded={open}
         >
-          <Sunny emotion={emotion} amplitudeRef={voice.amplitudeRef} />
+          <Clara emotion={emotion} amplitudeRef={voice.amplitudeRef} />
         </div>
         <div className={`status-pill${status ? ' show' : ''}`}>{status || ' '}</div>
         {open && chat.messages.length > 0 && (

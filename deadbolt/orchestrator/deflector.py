@@ -1,4 +1,4 @@
-"""The deflector — Deadbolt's bolt.
+"""The deflector — Agent Place's bolt.
 
 Core rule: irreversible-by-default caution. A proposed action passes freely
 (AUTO) only if it is reversible and within an auto limit; anything that spends

@@ -38,7 +38,7 @@ export interface Voice {
   enabled: boolean
   toggle: () => void
   listening: boolean // mic open and streaming
-  speaking: boolean // Sunny is talking
+  speaking: boolean // Clara is talking
   caption: string // live partial transcript of the user
   error: string | null // last voice failure, for a gentle UI hint
   amplitudeRef: MutableRefObject<number> // 0..1 mouth openness for lip-sync
@@ -115,13 +115,13 @@ export function useVoice(onTranscript: (text: string) => void): Voice {
         })
         if (!res.ok) {
           console.warn('[voice] TTS failed', res.status, await res.text().catch(() => ''))
-          setError("Sunny couldn't speak just now.")
+          setError("Clara couldn't speak just now.")
           return
         }
         bytes = await res.arrayBuffer()
       } catch (err) {
         console.warn('[voice] TTS request error', err)
-        setError("Sunny couldn't speak just now.")
+        setError("Clara couldn't speak just now.")
         return
       }
 
@@ -233,7 +233,7 @@ export function useVoice(onTranscript: (text: string) => void): Voice {
 
       let stream: MediaStream
       try {
-        // echoCancellation keeps Sunny's own voice out of the mic (no self-transcribe).
+        // echoCancellation keeps Clara's own voice out of the mic (no self-transcribe).
         stream = await navigator.mediaDevices.getUserMedia({
           audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
         })
@@ -285,11 +285,11 @@ export function useVoice(onTranscript: (text: string) => void): Voice {
         }
 
         if (msg.type === 'SpeechStarted') {
-          // User spoke while Sunny was talking → stop and let them take over (barge-in).
+          // User spoke while Clara was talking → stop and let them take over (barge-in).
           if (speakingRef.current) stopSpeaking()
           return
         }
-        // Ignore transcripts captured while Sunny is speaking (residual echo).
+        // Ignore transcripts captured while Clara is speaking (residual echo).
         if (speakingRef.current) return
 
         if (msg.type === 'UtteranceEnd') {

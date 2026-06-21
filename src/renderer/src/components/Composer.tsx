@@ -13,7 +13,7 @@ interface Props {
   onToggleVoice: () => void
 }
 
-/** The bottom bar: talk, type, send — the primary way to reach Sunny. */
+/** The bottom bar: talk, type, send — the primary way to reach Clara. */
 export function Composer({
   running,
   busy,
@@ -44,10 +44,10 @@ export function Composer({
       />
       <input
         className="composer-field"
-        placeholder={voiceEnabled ? 'Listening — or type here…' : 'Message Sunny…'}
+        placeholder={voiceEnabled ? 'Listening — or type here…' : 'Message Clara…'}
         value={text}
         onChange={(e) => setText(e.target.value)}
-        aria-label="Message Sunny"
+        aria-label="Message Clara"
         autoFocus
       />
       {running ? (

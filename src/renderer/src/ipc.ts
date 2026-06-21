@@ -22,10 +22,10 @@ export interface DeepgramCredential {
   mode: 'access' | 'key'
 }
 
-/** How much help Sunny gives — the "How much help?" dial. */
+/** How much help Clara gives — the "How much help?" dial. */
 export type HelpMode = 'hands-on' | 'side-by-side' | 'cheering'
 
-/** One conversational turn: Sunny's spoken reply + whether it should act. */
+/** One conversational turn: Clara's spoken reply + whether it should act. */
 export interface ConverseReply {
   intent: 'task' | 'chat'
   say: string // short, warm reply to speak/show immediately

@@ -112,7 +112,7 @@ function sendToSidecar(cmd: object) {
 function createWindow() {
   win = new BrowserWindow({
     // Start collapsed: just the floating avatar. The chat panel (and the larger
-    // window) appears when the user clicks Sunny — see window:setExpanded.
+    // window) appears when the user clicks Clara — see window:setExpanded.
     width: COLLAPSED.width,
     height: COLLAPSED.height,
     minWidth: 200,
@@ -156,7 +156,7 @@ app.whenReady().then(() => {
     return id
   })
 
-  // Conversational turn: ask the sidecar for Sunny's reply + task routing, and
+  // Conversational turn: ask the sidecar for Clara's reply + task routing, and
   // resolve when the matching `reply` event comes back (or fail safe on timeout).
   ipcMain.handle('agent:converse', (_e, text: string, mode = 'hands-on'): Promise<ConverseReply> => {
     const id = randomUUID()

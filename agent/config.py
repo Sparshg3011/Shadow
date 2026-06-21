@@ -64,7 +64,7 @@ class Config:
             # than Sonnet. Set SHADOW_GEN_MODEL=claude-sonnet-4-6 to trade accuracy
             # for speed on simple tasks.
             gen_model=os.getenv("SHADOW_GEN_MODEL", "claude-opus-4-8").strip(),
-            # The conversational turn (Sunny's spoken replies + task routing) wants speed
+            # The conversational turn (Clara's spoken replies + task routing) wants speed
             # over raw capability — Sonnet keeps the back-and-forth snappy.
             chat_model=os.getenv("SHADOW_CHAT_MODEL", "claude-sonnet-4-6").strip(),
             ground_model=os.getenv("SHADOW_GROUND_MODEL", "bytedance/ui-tars-1.5-7b").strip(),

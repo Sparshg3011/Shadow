@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Deadbolt control plane — live Fetch.ai marketplace + orchestrator routes + intent feed.",
+  "description": "Agent Place control plane — live Fetch.ai marketplace + orchestrator routes + intent feed.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

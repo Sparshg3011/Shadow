@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Expose the Deadbolt orchestrator (:8000) publicly so other systems can call
+# Expose the Agent Place orchestrator (:8000) publicly so other systems can call
 # POST /classify. Defaults to ngrok; pass "cloudflare" to use cloudflared.
 #
 # SECURITY: the orchestrator has NO auth — anyone with the URL can submit intents

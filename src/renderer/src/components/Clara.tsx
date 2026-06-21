@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { MutableRefObject } from 'react'
 
-export type SunnyEmotion =
+export type ClaraEmotion =
   | 'idle'
   | 'listening'
   | 'thinking'
@@ -16,7 +16,7 @@ export type SunnyEmotion =
   | 'mischievous'
 
 interface Props {
-  emotion: SunnyEmotion
+  emotion: ClaraEmotion
   /** 0..1 mouth openness while talking (TTS amplitude); auto-oscillates if absent. */
   amplitudeRef?: MutableRefObject<number>
 }
@@ -30,7 +30,7 @@ type Cfg = {
   blink: boolean
 }
 
-const C: Record<SunnyEmotion, Cfg> = {
+const C: Record<ClaraEmotion, Cfg> = {
   idle: { orb: '#7fd4ff', eye: [1, 1, 0], bob: [4, 1.5], jitter: 0, blink: true },
   listening: { orb: '#56e08b', eye: [1.12, 1.2, -1], bob: [3, 1.7], jitter: 0, blink: true },
   thinking: { orb: '#ffc46b', eye: [1, 1, -5], bob: [3, 1.2], jitter: 0, blink: true },
@@ -45,10 +45,10 @@ const C: Record<SunnyEmotion, Cfg> = {
   mischievous: { orb: '#c77bff', eye: [1.05, 0.55, 1], bob: [4, 1.9], jitter: 0, blink: true }
 }
 
-const ARC_EYES: SunnyEmotion[] = ['happy', 'proud']
-const STAR_EYES: SunnyEmotion[] = ['excited']
+const ARC_EYES: ClaraEmotion[] = ['happy', 'proud']
+const STAR_EYES: ClaraEmotion[] = ['excited']
 
-function mouthKind(e: SunnyEmotion): 'smile' | 'grin' | 'open' | 'o' | 'squiggle' | 'smirk' | 'frown' {
+function mouthKind(e: ClaraEmotion): 'smile' | 'grin' | 'open' | 'o' | 'squiggle' | 'smirk' | 'frown' {
   if (e === 'talking') return 'open'
   if (e === 'happy') return 'grin'
   if (e === 'excited') return 'open'
@@ -60,7 +60,7 @@ function mouthKind(e: SunnyEmotion): 'smile' | 'grin' | 'open' | 'o' | 'squiggle
 }
 
 // Brow rotation (deg) per side; the mischievous/confused look raises one.
-function brows(e: SunnyEmotion): [number, number, number] {
+function brows(e: ClaraEmotion): [number, number, number] {
   // [leftDeg, rightDeg, yOffset]
   switch (e) {
     case 'thinking':
@@ -79,9 +79,9 @@ function brows(e: SunnyEmotion): [number, number, number] {
   }
 }
 
-/** Sunny — an original, expressive screen-faced robot with a cheeky soul. */
-export function Sunny({ emotion, amplitudeRef }: Props) {
-  const eRef = useRef<SunnyEmotion>(emotion)
+/** Clara — an original, expressive screen-faced robot with a cheeky soul. */
+export function Clara({ emotion, amplitudeRef }: Props) {
+  const eRef = useRef<ClaraEmotion>(emotion)
   useEffect(() => {
     eRef.current = emotion
   }, [emotion])
@@ -177,7 +177,7 @@ export function Sunny({ emotion, amplitudeRef }: Props) {
   const [bl, br, by] = brows(emotion)
 
   return (
-    <svg viewBox="0 0 240 320" className="sunny" xmlns="http://www.w3.org/2000/svg">
+    <svg viewBox="0 0 240 320" className="Clara" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <radialGradient id="headG" cx="38%" cy="30%">
           <stop offset="0%" stopColor="#fdfbff" />

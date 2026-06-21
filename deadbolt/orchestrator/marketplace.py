@@ -1,7 +1,7 @@
 """Live Fetch.ai Agentverse marketplace search.
 
 The dashboard wants to *browse* the real marketplace (discover agents that could
-become downstream skills) without trusting them — exactly the Deadbolt model:
+become downstream skills) without trusting them — exactly the Agent Place model:
 agents are discoverable as planners, never granted execution.
 
 We proxy the public Agentverse search API server-side so the browser needs no

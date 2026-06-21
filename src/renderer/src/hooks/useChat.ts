@@ -29,7 +29,7 @@ export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
   text: string
-  pending?: boolean // assistant placeholder while Sunny is thinking of a reply
+  pending?: boolean // assistant placeholder while Clara is thinking of a reply
   task?: TaskState // attached to the assistant turn that kicked off a task
 }
 
@@ -51,8 +51,8 @@ const newId = () => `m${Date.now().toString(36)}-${(seq++).toString(36)}`
 
 /**
  * The conversation: every user message is routed through `converse` (a fast
- * reply + task/chat decision), Sunny answers immediately, and real tasks run as
- * tracked, live cards in the transcript. `speak` is called for everything Sunny
+ * reply + task/chat decision), Clara answers immediately, and real tasks run as
+ * tracked, live cards in the transcript. `speak` is called for everything Clara
  * says so the caller can voice it (a no-op when voice output is off).
  */
 export function useChat(mode: HelpMode, speak: (text: string) => void): UseChat {
@@ -263,7 +263,7 @@ export function useChat(mode: HelpMode, speak: (text: string) => void): UseChat 
   }, [])
 
   const clear = useCallback(() => {
-    // Starting fresh also stops anything in flight and returns Sunny to idle.
+    // Starting fresh also stops anything in flight and returns Clara to idle.
     turnRef.current++
     busyRef.current = false
     const id = activeTaskRef.current

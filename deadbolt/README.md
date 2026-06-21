@@ -1,4 +1,4 @@
-# Deadbolt
+# Agent Place
 
 > A marketplace of agents that can finally do things for you — fronted by one
 > trust layer. **The agents plan. The gate decides.**

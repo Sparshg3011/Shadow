@@ -1,4 +1,4 @@
-"""'Your space' — marketplace agents the user has added to Deadbolt.
+"""'Your space' — marketplace agents the user has added to Agent Place.
 
 Adding an agent makes it a known planner the orchestrator can route to, but the
 deflector still gates its irreversible actions (discovery without trust). State

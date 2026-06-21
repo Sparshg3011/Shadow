@@ -25,7 +25,7 @@ const api = {
   runTask: (instruction: string, mode: HelpMode = 'hands-on'): Promise<string> =>
     ipcRenderer.invoke('agent:runTask', instruction, mode),
 
-  /** One conversational turn — Sunny's spoken reply + whether to act. */
+  /** One conversational turn — Clara's spoken reply + whether to act. */
   converse: (
     text: string,
     mode: HelpMode = 'hands-on'

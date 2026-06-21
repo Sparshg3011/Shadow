@@ -1,4 +1,4 @@
-# Deadbolt orchestrator + search agent + demo (Fetch.ai uAgents)
+# Agent Place orchestrator + search agent + demo (Fetch.ai uAgents)
 uagents>=0.22.0
 uagents-core>=0.3.0
 openai>=1.40.0

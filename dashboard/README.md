@@ -1,11 +1,11 @@
-# Deadbolt Dashboard
+# Agent Place Dashboard
 
-A live **control plane** for the Deadbolt agent marketplace. It reads only from
+A live **control plane** for the Agent Place agent marketplace. It reads only from
 the orchestrator (Python uAgents, `:8000`) and shows three things at once:
 
 - **Fetch.ai Marketplace** — live search of the Agentverse marketplace. Type a
   domain (groceries, payments, travel…) and browse real agents — discoverable
-  but untrusted (the Deadbolt rule: agents plan, they never execute on their own).
+  but untrusted (the Agent Place rule: agents plan, they never execute on their own).
 - **Wired Routes** — the agents the orchestrator currently routes to, enriched
   with live marketplace metadata (avatar, interaction count, online status).
 - **Intent Feed** — every request flowing through the gate, with its live status
@@ -31,7 +31,7 @@ npm install
 npm run dev          # http://localhost:5273
 ```
 
-It expects the Deadbolt **orchestrator** (the Python uAgents backend) running on
+It expects the Agent Place **orchestrator** (the Python uAgents backend) running on
 `http://localhost:8000` — Vite proxies `/api` → that origin (override with the
 `ORCHESTRATOR_URL` env var). The dashboard is read-mostly: it browses the live
 Agentverse marketplace, lists agents in your space, and posts intents through the

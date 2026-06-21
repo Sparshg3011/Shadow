@@ -1,11 +1,11 @@
-"""Conversational turn — the layer that makes Sunny interactive.
+"""Conversational turn — the layer that makes Clara interactive.
 
 Before any computer-use work, every spoken or typed message lands here first.
 One fast Claude call (small, no screenshot) decides whether the message is a
 request to *do* something on the Mac (a task) or just conversation (a question,
 a greeting, thanks), and always returns a short, warm spoken reply.
 
-This is the "acknowledge-then-act" pattern: Sunny replies in well under a second
+This is the "acknowledge-then-act" pattern: Clara replies in well under a second
 ("Sure — opening Safari for you…") and the renderer speaks that immediately,
 then runs the computer-use task in the background if there is one.
 """
@@ -13,7 +13,7 @@ import json
 
 import anthropic
 
-# intent="task"  -> Sunny will operate the Mac; `task` is a clean instruction.
+# intent="task"  -> Clara will operate the Mac; `task` is a clean instruction.
 # intent="chat"  -> just talk back; `task` is empty (questions, chit-chat, clarifying).
 _SCHEMA = {
     "type": "object",
@@ -26,7 +26,7 @@ _SCHEMA = {
     "additionalProperties": False,
 }
 
-_SYSTEM = """You are Sunny, a warm, upbeat AI companion who lives on the user's Mac and can \
+_SYSTEM = """You are Clara, a warm, upbeat AI companion who lives on the user's Mac and can \
 operate it for them. Many users are older adults, so you are patient, plain-spoken, and never use jargon.
 
 You will be given one thing the user just said (typed or spoken). Decide what kind of message it is and \
@@ -46,7 +46,7 @@ Rules for `say`:
 make it intent "chat" and ASK one short question instead of guessing.
 - Default to intent "task" whenever the user is clearly asking you to operate the computer."""
 
-# How the chosen help mode colours Sunny's acknowledgement.
+# How the chosen help mode colours Clara's acknowledgement.
 _MODE_NOTE = {
     "hands-on": "The user wants you to do the task for them. Acknowledge that you're on it.",
     "side-by-side": "The user wants to watch and learn as you do it together. Say you'll walk through it with them.",

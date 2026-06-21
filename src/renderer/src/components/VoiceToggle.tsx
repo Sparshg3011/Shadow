@@ -5,12 +5,12 @@ interface Props {
   onToggle: () => void
 }
 
-/** Floating mic button — the primary way to start talking to Sunny. */
+/** Floating mic button — the primary way to start talking to Clara. */
 export function VoiceToggle({ enabled, listening, speaking, onToggle }: Props) {
   const cls = ['voice-btn', enabled && 'on', listening && 'listening', speaking && 'speaking']
     .filter(Boolean)
     .join(' ')
-  const label = !enabled ? 'Start voice' : speaking ? 'Sunny is talking' : 'Listening — tap to stop'
+  const label = !enabled ? 'Start voice' : speaking ? 'Clara is talking' : 'Listening — tap to stop'
 
   return (
     <button className={cls} onClick={onToggle} title={label} aria-label={label}>

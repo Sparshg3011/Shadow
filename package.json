@@ -1,7 +1,7 @@
 {
   "name": "shadow",
   "version": "0.1.0",
-  "description": "Sunny — a voice-first AI companion that operates the computer",
+  "description": "Clara — a voice-first AI companion that operates the computer",
   "main": "./out/main/index.js",
   "author": "",
   "license": "MIT",

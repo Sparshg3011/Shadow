@@ -74,7 +74,7 @@ body {
   transform: scale(0.98);
 }
 
-.sunny {
+.Clara {
   width: auto;
   height: 132px;
   max-width: 100%;
@@ -84,20 +84,20 @@ body {
   filter: drop-shadow(0 8px 16px rgba(20, 28, 56, 0.22));
 }
 
-.sunny .feature {
+.Clara .feature {
   fill: #87e5ff;
 }
-.sunny .feature-stroke {
+.Clara .feature-stroke {
   stroke: #87e5ff;
   stroke-width: 6;
   stroke-linecap: round;
   fill: none;
 }
-.sunny .orb-core,
-.sunny .chest {
+.Clara .orb-core,
+.Clara .chest {
   fill: var(--orb, #7fd4ff);
 }
-.sunny .orb-glow {
+.Clara .orb-glow {
   fill: var(--orb, #7fd4ff);
   opacity: var(--pulse, 0.7);
 }
@@ -539,7 +539,7 @@ body {
   padding: 6px;
   box-shadow: 0 6px 16px rgba(28, 36, 68, 0.1);
 }
-.gallery-cell .sunny {
+.gallery-cell .Clara {
   width: 110px;
   height: 138px;
 }

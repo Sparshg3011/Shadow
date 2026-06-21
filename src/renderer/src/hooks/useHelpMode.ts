@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 import type { HelpMode } from '../ipc'
 
-const KEY = 'sunny.helpMode'
+const KEY = 'Clara.helpMode'
 const MODES: HelpMode[] = ['hands-on', 'side-by-side', 'cheering']
 
 /** The chosen "How much help?" mode, persisted across launches. */

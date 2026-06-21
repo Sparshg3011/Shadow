@@ -11,7 +11,7 @@ interface Props {
   onChange: (mode: HelpMode) => void
 }
 
-/** "How much help?" — pick how hands-on Sunny is. */
+/** "How much help?" — pick how hands-on Clara is. */
 export function HelpDial({ mode, onChange }: Props) {
   return (
     <div className="help-dial">
