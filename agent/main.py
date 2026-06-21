@@ -73,6 +73,9 @@ class Sidecar:
         if result.get("type") == "error":
             return {"id": task_id, "instruction": instruction,
                     "verdict": "rejected", "reason": result.get("message", ""), "summary": ""}
+        if result.get("type") == "cancelled":
+            return {"id": task_id, "instruction": instruction,
+                    "verdict": "rejected", "reason": "cancelled", "summary": ""}
         return {"id": task_id, "instruction": instruction,
                 "verdict": result.get("verdict", "approved"),
                 "reason": result.get("reason", ""),
@@ -107,7 +110,7 @@ class Sidecar:
             def emit(ev: dict):
                 self.send({**ev, "id": task_id})
                 # Hand the terminal result to any sync caller waiting on this task.
-                if ev.get("type") in ("done", "error"):
+                if ev.get("type") in ("done", "error", "cancelled"):
                     waiter = self._events.get(task_id)
                     if waiter:
                         self._results[task_id] = ev

@@ -44,14 +44,20 @@ export function useAgent(): UseAgent {
   const [current, setCurrent] = useState<string | null>(null)
   const [liveShot, setLiveShot] = useState<string | null>(null)
   const taskId = useRef<string | null>(null)
+  const cancelledId = useRef<string | null>(null)
   const talkTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (!window.shadow) return
     return window.shadow.onEvent((ev: AgentEvent) => {
+      // Ignore any late events from a task we already stopped (no stale results).
+      const evId = 'id' in ev ? ev.id : undefined
+      if (evId && evId === cancelledId.current && ev.type !== 'cancelled') return
+
       switch (ev.type) {
         case 'queued':
           // A task arrived (from the UI or the HTTP endpoint) — reset for it.
+          cancelledId.current = null
           setSteps([])
           setResult(null)
           setError(null)
@@ -90,6 +96,13 @@ export function useAgent(): UseAgent {
           setRunning(false)
           setState('idle')
           break
+        case 'cancelled':
+          // Backend confirmed the stop — clear everything back to idle.
+          if (talkTimer.current) clearTimeout(talkTimer.current)
+          setRunning(false)
+          setState('idle')
+          setCurrent(null)
+          break
       }
     })
   }, [])
@@ -108,7 +121,9 @@ export function useAgent(): UseAgent {
   }, [])
 
   const cancel = useCallback(() => {
+    cancelledId.current = taskId.current
     if (taskId.current) window.shadow?.cancel(taskId.current)
+    if (talkTimer.current) clearTimeout(talkTimer.current)
     setRunning(false)
     setCurrent(null)
     setState('idle')

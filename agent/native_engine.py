@@ -126,19 +126,13 @@ class NativeRunner:
 
         for step in range(self.cfg.max_steps):
             if should_cancel():
-                emit({"type": "status", "state": "idle"})
+                emit({"type": "cancelled"})
                 return
 
-            resp = self.client.beta.messages.create(
-                model=self.cfg.gen_model,
-                max_tokens=4096,
-                system=system,
-                thinking={"type": "adaptive"},
-                output_config={"effort": self.cfg.effort},
-                tools=tools,
-                betas=[COMPUTER_BETA],
-                messages=messages,
-            )
+            resp = self._generate(messages, system, tools, should_cancel)
+            if resp is None:  # stop pressed mid-generation
+                emit({"type": "cancelled"})
+                return
 
             text = " ".join(b.text for b in resp.content if b.type == "text").strip()
             if text:
@@ -159,7 +153,7 @@ class NativeRunner:
                       "detail": text[:160], "n": step + 1})
 
                 if should_cancel():
-                    emit({"type": "status", "state": "idle"})
+                    emit({"type": "cancelled"})
                     return
                 if action not in ("screenshot", "cursor_position"):
                     A.execute_action(inp, self.screen, self.scaled, self.cfg.scroll_scale)
@@ -193,6 +187,24 @@ class NativeRunner:
             emit({"type": "status", "state": "thinking"})
 
         self._done(emit, instruction, (last_text + " (reached the step limit)").strip())
+
+    def _generate(self, messages, system, tools, should_cancel):
+        """Stream one response so a stop can abort it mid-generation (instead of
+        blocking on a 10-30s call). Returns the final message, or None if cancelled."""
+        with self.client.beta.messages.stream(
+            model=self.cfg.gen_model,
+            max_tokens=4096,
+            system=system,
+            thinking={"type": "adaptive"},
+            output_config={"effort": self.cfg.effort},
+            tools=tools,
+            betas=[COMPUTER_BETA],
+            messages=messages,
+        ) as stream:
+            for _ in stream:
+                if should_cancel():
+                    return None
+            return stream.get_final_message()
 
     def _done(self, emit: Emit, instruction: str, summary: str):
         final = self._final()

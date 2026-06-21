@@ -15,6 +15,7 @@ export type AgentEvent =
       reason?: string
     }
   | { type: 'error'; id?: string; code: string; message: string }
+  | { type: 'cancelled'; id?: string }
 
 export interface DeepgramCredential {
   token: string

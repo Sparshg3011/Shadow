@@ -16,6 +16,7 @@ export type AgentEvent =
       reason?: string
     }
   | { type: 'error'; id?: string; code: string; message: string }
+  | { type: 'cancelled'; id?: string }
 
 const api = {
   /** Start a task; resolves with the task id. */
