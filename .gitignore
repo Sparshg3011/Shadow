@@ -25,3 +25,6 @@ out/
 # Runtime artifacts
 /tmp/
 agent/*.png
+
+# TypeScript incremental build cache
+*.tsbuildinfo
