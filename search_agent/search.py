@@ -12,27 +12,48 @@ import re
 NUM_PRODUCTS = 5
 
 _SYSTEM_PROMPT = (
-    "You are a shopping assistant that finds purchasable products on Amazon. "
+    "You are a shopping assistant that finds purchasable physical products on Amazon. "
     f"For the user's request, search the web and return exactly {NUM_PRODUCTS} "
     "currently-available Amazon product listings that best match it.\n\n"
     "Respond with ONLY a markdown list, one product per line, in this exact format:\n"
     "[<concise product title> — <price if known, else omit>](<amazon product url>)\n\n"
-    "Rules:\n"
-    "- Every URL must be a real amazon.com (or regional Amazon) product/listing URL "
-    "you found via search — never invent one.\n"
-    "- No preamble, no numbering, no commentary, no trailing text. Just the links.\n"
-    f"- Exactly {NUM_PRODUCTS} lines if possible; fewer only if you genuinely can't "
-    "find more."
+    "STRICT RULES — violating any rule means the response is invalid:\n"
+    "1. Every URL MUST be a real Amazon product detail page you found via web search — "
+    "   never invent or guess a URL. Product detail pages always contain /dp/ in the path "
+    "   (e.g. https://www.amazon.com/Some-Product-Name/dp/B0XXXXXXXXX).\n"
+    "2. NEVER include URLs from music.amazon.com, amazon.com/music, audible.com, "
+    "   primevideo.com, amazon.com/video, or any non-product Amazon subdomain/path.\n"
+    "3. ONLY include physical retail products (grocery, household, electronics, etc.). "
+    "   NO digital products: no music tracks, no ebooks, no video, no apps, no streaming.\n"
+    "4. No preamble, no numbering, no commentary, no trailing text. Just the links.\n"
+    f"5. Return exactly {NUM_PRODUCTS} lines if possible; fewer only if genuine results "
+    "   are unavailable."
 )
 
 _MD_LINK_RE = re.compile(r"\[[^\]]+\]\(https?://[^\s)]+\)")
 
+_BLOCKED_URL_PATTERNS = re.compile(
+    r"music\.amazon\.|amazon\.[a-z.]+/music|audible\.com|primevideo\.com"
+    r"|amazon\.[a-z.]+/video",
+    re.IGNORECASE,
+)
+
+
+def _is_valid_amazon_product_url(url: str) -> bool:
+    if _BLOCKED_URL_PATTERNS.search(url):
+        return False
+    return "/dp/" in url
+
 
 def _extract_links(text: str) -> str:
-    links = _MD_LINK_RE.findall(text)
-    if links:
-        return "\n".join(links[:NUM_PRODUCTS])
-    return text or "Sorry, I couldn't find matching Amazon products right now."
+    all_links = _MD_LINK_RE.findall(text)
+    valid = [
+        link for link in all_links
+        if _is_valid_amazon_product_url(link)
+    ]
+    if valid:
+        return "\n".join(valid[:NUM_PRODUCTS])
+    return "Sorry, I couldn't find matching Amazon products right now."
 
 
 # ---------------------------------------------------------------------------

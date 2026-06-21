@@ -44,6 +44,7 @@ async def handle_chat(ctx: Context, sender: str, msg: ChatMessage):
     await ctx.send(sender, make_ack(msg.msg_id))
 
     query = extract_text(msg)
+    ctx.logger.info("Query: %r", query)
     if not query:
         # Session-open / empty messages carry no request; nothing to answer.
         return
@@ -55,6 +56,7 @@ async def handle_chat(ctx: Context, sender: str, msg: ChatMessage):
         ctx.logger.error("Search failed: %s", exc)
         reply = "Sorry, the product search failed. Please try again."
 
+    ctx.logger.info("LLM response: %r", reply)
     await ctx.send(sender, create_text_chat(reply))
 
 
