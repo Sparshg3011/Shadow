@@ -1,0 +1,200 @@
+"""shadow-orchestrator: intent-routing Fetch.ai agent.
+
+Accepts queries from two channels:
+  1. Middleware  -> synchronous REST  POST /classify
+  2. ASI:One     -> Agent Chat Protocol (ChatMessage)
+
+Classifies intent with the ASI:One LLM and, for `amazon_grocery_order`, forwards
+the request to the downstream Amazon agent over the chat protocol, then returns
+the purchasable links + product details to the originating caller.
+
+Run:  python -m orchestrator.agent
+"""
+
+import asyncio
+import os
+from uuid import uuid4
+
+from dotenv import load_dotenv
+from uagents import Agent, Context, Protocol
+from uagents_core.contrib.protocols.chat import (
+    ChatAcknowledgement,
+    ChatMessage,
+    chat_protocol_spec,
+)
+
+from .chat_utils import create_text_chat, extract_text, make_ack, parse_products
+from .intent import classify_intent
+from .models import (
+    HealthResponse,
+    OrchestrateRequest,
+    OrchestrateResponse,
+    Product,
+)
+from .routing import AMAZON_AGENT_ADDRESS, downstream_for, forward_to_downstream
+from .session import PendingEntry, discard, pop_for_sender
+
+load_dotenv()
+
+PORT = int(os.getenv("PORT", "8000"))
+AGENT_SEED = os.getenv("AGENT_SEED", "shadow-orchestrator-secret-seed-change-me")
+DOWNSTREAM_TIMEOUT = float(os.getenv("DOWNSTREAM_TIMEOUT", "45"))
+
+agent = Agent(
+    name="shadow-orchestrator",
+    seed=AGENT_SEED,
+    port=PORT,
+    mailbox=True,
+)
+
+chat_proto = Protocol(spec=chat_protocol_spec)
+
+
+# --------------------------------------------------------------------------- #
+# Shared result shaping
+# --------------------------------------------------------------------------- #
+def build_response(
+    session_id: str, intent: str, reply_text: str
+) -> OrchestrateResponse:
+    products = parse_products(reply_text)
+    return OrchestrateResponse(
+        session_id=session_id,
+        intent=intent,
+        status="ok",
+        message=reply_text,
+        products=products or None,
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Chat protocol (ASI:One inbound + downstream replies)
+# --------------------------------------------------------------------------- #
+@chat_proto.on_message(ChatMessage)
+async def handle_chat(ctx: Context, sender: str, msg: ChatMessage):
+    await ctx.send(sender, make_ack(msg.msg_id))
+
+    # Case 1: a reply from the downstream Amazon agent -> correlate it back.
+    if sender == AMAZON_AGENT_ADDRESS:
+        reply_text = extract_text(msg)
+        ctx.logger.info(
+            "Downstream msg from Amazon: types=%s text_len=%d",
+            [type(c).__name__ for c in msg.content],
+            len(reply_text),
+        )
+        # Session-open / empty messages carry no answer; wait for the text one
+        # so we don't consume the pending session prematurely.
+        if not reply_text:
+            return
+
+        entry = pop_for_sender(sender)
+        if entry is None:
+            ctx.logger.warning("Downstream reply with no pending session; dropping.")
+            return
+
+        if entry.origin == "rest" and entry.future and not entry.future.done():
+            entry.future.set_result(reply_text)
+        elif entry.origin == "chat" and entry.reply_to:
+            resp = build_response(entry.session_id, entry.intent, reply_text)
+            await ctx.send(entry.reply_to, create_text_chat(_format_chat(resp)))
+        return
+
+    # Case 2: an inbound user query from ASI:One.
+    text = extract_text(msg)
+    if not text:
+        return
+
+    intent, args = classify_intent(text)
+    query = args.get("query", text)
+    session_id = str(uuid4())
+    ctx.logger.info(
+        "Inbound chat from %s | intent=%s | text=%r", sender, intent, text
+    )
+
+    if downstream_for(intent):
+        entry = PendingEntry(
+            session_id=session_id,
+            intent=intent,
+            origin="chat",
+            reply_to=sender,
+        )
+        await forward_to_downstream(ctx, entry, query)
+        # Reply is delivered asynchronously when the downstream agent answers.
+    else:
+        await ctx.send(
+            sender,
+            create_text_chat(
+                "I can currently help with Amazon grocery orders. "
+                "Try asking me to order or find grocery products."
+            ),
+        )
+
+
+@chat_proto.on_message(ChatAcknowledgement)
+async def handle_ack(ctx: Context, sender: str, msg: ChatAcknowledgement):
+    pass
+
+
+def _format_chat(resp: OrchestrateResponse) -> str:
+    """Render an OrchestrateResponse as readable chat text for ASI:One."""
+    if not resp.products:
+        return resp.message
+    lines = ["Here's what I found:"]
+    for p in resp.products:
+        price = f" — {p.price}" if p.price else ""
+        lines.append(f"• {p.title}{price}\n  {p.url}")
+    return "\n".join(lines)
+
+
+# --------------------------------------------------------------------------- #
+# REST channel (middleware inbound)
+# --------------------------------------------------------------------------- #
+@agent.on_rest_post("/classify", OrchestrateRequest, OrchestrateResponse)
+async def handle_classify(
+    ctx: Context, req: OrchestrateRequest
+) -> OrchestrateResponse:
+    intent, args = classify_intent(req.query)
+    query = args.get("query", req.query)
+    session_id = str(uuid4())
+
+    if not downstream_for(intent):
+        return OrchestrateResponse(
+            session_id=session_id,
+            intent=intent,
+            status="unknown_intent",
+            message="No downstream skill matched this request.",
+            products=None,
+        )
+
+    loop = asyncio.get_event_loop()
+    future: asyncio.Future = loop.create_future()
+    entry = PendingEntry(
+        session_id=session_id, intent=intent, origin="rest", future=future
+    )
+    await forward_to_downstream(ctx, entry, query)
+
+    try:
+        reply_text = await asyncio.wait_for(future, timeout=DOWNSTREAM_TIMEOUT)
+    except asyncio.TimeoutError:
+        discard(session_id, downstream_for(intent))
+        return OrchestrateResponse(
+            session_id=session_id,
+            intent=intent,
+            status="timeout",
+            message="The downstream agent did not respond in time.",
+            products=None,
+        )
+
+    return build_response(session_id, intent, reply_text)
+
+
+@agent.on_rest_get("/health", HealthResponse)
+async def handle_health(ctx: Context) -> HealthResponse:
+    return HealthResponse(status="ok", agent_address=agent.address)
+
+
+agent.include(chat_proto, publish_manifest=True)
+
+
+if __name__ == "__main__":
+    print(f"shadow-orchestrator address: {agent.address}")
+    agent.run()
