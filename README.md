@@ -72,6 +72,25 @@ Configure host/port and an optional auth token in `.env` (`SHADOW_HTTP_HOST`, `S
 set `SHADOW_HTTP_TOKEN` (sent as `Authorization: Bearer <token>`) before exposing it beyond
 localhost. `GET /health` returns `{"status":"ok"}`.
 
+### Remote access from another computer (Cloudflare Tunnel)
+
+To reach the endpoint from another machine, expose it with a [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/)
+— it dials out to Cloudflare's edge and hands you a public `https://<name>.trycloudflare.com` URL,
+so you never open a firewall port.
+
+```bash
+brew install cloudflared      # one-time
+npm run dev                   # app + endpoint must be running
+npm run tunnel                # prints the public URL + a ready-to-use curl
+```
+
+> ⚠️ **A public URL to a computer-control endpoint is dangerous.** The tunnel script **refuses to
+> run unless `SHADOW_HTTP_TOKEN` is set**, and every request must send `Authorization: Bearer
+> <token>`. The `trycloudflare.com` URL is ephemeral — `Ctrl-C` the tunnel as soon as you're done,
+> and rotate the token if it leaks. For anything beyond a quick demo, use a
+> [named tunnel with Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/policies/access/)
+> in front of it.
+
 ## Customizing the avatar
 
 The avatar is **model-agnostic**: drop in any rigged GLB and it auto-scales, frames, and animates.
