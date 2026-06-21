@@ -1,12 +1,11 @@
 :root {
-  --bg: #0f1117;
-  --panel: rgba(255, 255, 255, 0.04);
-  --border: rgba(255, 255, 255, 0.08);
-  --text: #e8eaf0;
-  --muted: #8b90a0;
-  --accent: #7c8cff;
-  --accent-2: #58e0c8;
+  --text: #1c2444;
+  --muted: #5a6488;
+  --accent: #6aa6ff;
+  --accent-2: #56e08b;
   --stop: #ff6b6b;
+  --panel: rgba(255, 255, 255, 0.9);
+  --border: rgba(120, 140, 200, 0.25);
 }
 
 * {
@@ -21,11 +20,13 @@ body,
 }
 
 body {
-  background: radial-gradient(120% 100% at 50% 0%, #161a26 0%, var(--bg) 60%);
+  /* Transparent so only Sunny + the cloud show over the desktop. */
+  background: transparent;
   color: var(--text);
-  font: 14px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font: 15px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
   user-select: none;
+  overflow: hidden;
 }
 
 .app {
@@ -33,139 +34,140 @@ body {
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 14px;
-  padding-top: 34px;
-  gap: 12px;
 }
 
-/* Draggable strip so the frameless window can be moved. */
+/* ---- Sunny + speech cloud ---- */
+.sunny-stage {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  min-height: 0;
+}
+
 .drag-region {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 34px;
+  inset: 0;
   -webkit-app-region: drag;
 }
 
-button,
-input,
-.chip,
-canvas {
+.sunny {
+  width: 240px;
+  height: 300px;
+  display: block;
+  overflow: visible;
+  -webkit-app-region: drag;
+}
+
+.sunny .feature {
+  fill: #87e5ff;
+}
+.sunny .feature-stroke {
+  stroke: #87e5ff;
+  stroke-width: 6;
+  stroke-linecap: round;
+  fill: none;
+}
+.sunny .orb-core,
+.sunny .chest {
+  fill: var(--orb, #7fd4ff);
+}
+.sunny .orb-glow {
+  fill: var(--orb, #7fd4ff);
+  opacity: var(--pulse, 0.7);
+}
+
+/* Speech cloud — puffy, trails up from the mouth, large readable captions. */
+.cloud {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 280px;
+  z-index: 3;
+  animation: cloud-in 0.32s ease;
   -webkit-app-region: no-drag;
 }
 
-/* Suggestion chips */
-.suggestions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.chip {
-  padding: 7px 12px;
-  font-size: 12px;
+.cloud-body {
+  background: #ffffff;
   color: var(--text);
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  cursor: pointer;
+  font-size: 18px;
+  line-height: 1.4;
+  padding: 14px 18px;
+  border-radius: 26px;
+  box-shadow:
+    0 10px 30px rgba(28, 36, 68, 0.22),
+    -34px 6px 0 -10px #fff,
+    34px 6px 0 -10px #fff,
+    -20px 22px 0 -8px #fff,
+    22px 22px 0 -8px #fff;
 }
 
-.chip:hover {
-  border-color: var(--accent);
-  color: #fff;
+.cloud-tail {
+  position: absolute;
+  left: 50%;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 4px 10px rgba(28, 36, 68, 0.18);
+}
+.cloud-tail.tail-1 {
+  width: 18px;
+  height: 18px;
+  bottom: -16px;
+  transform: translateX(-26px);
+}
+.cloud-tail.tail-2 {
+  width: 11px;
+  height: 11px;
+  bottom: -30px;
+  transform: translateX(-14px);
 }
 
-/* ---- Avatar stage ---- */
-.stage {
+@keyframes cloud-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.96); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+}
+
+/* ---- Control dock (reveals on hover; voice is the primary path) ---- */
+.dock {
   position: relative;
-  flex: 1;
-  min-height: 300px;
-  border-radius: 18px;
-  overflow: hidden;
-  /* Soft halo behind the avatar; tints with state. */
-  background:
-    radial-gradient(70% 60% at 50% 38%, rgba(124, 140, 255, 0.22), transparent 70%),
-    linear-gradient(180deg, #1a1f2e 0%, #11141d 100%);
-  transition: background 0.6s ease;
-}
-
-.stage.state-thinking {
-  background:
-    radial-gradient(70% 60% at 50% 38%, rgba(124, 140, 255, 0.4), transparent 70%),
-    linear-gradient(180deg, #1a1f2e 0%, #11141d 100%);
-}
-
-.stage.state-talking {
-  background:
-    radial-gradient(70% 60% at 50% 38%, rgba(88, 224, 200, 0.32), transparent 70%),
-    linear-gradient(180deg, #1a2a2a 0%, #11141d 100%);
-}
-
-.stage canvas {
-  display: block;
-}
-
-/* ---- Speech bubble ---- */
-.speech-bubble {
-  position: absolute;
-  left: 50%;
-  bottom: 16px;
-  transform: translateX(-50%);
-  max-width: 86%;
-  padding: 10px 14px;
-  font-size: 13px;
-  color: #0f1117;
-  background: #f2f4ff;
-  border-radius: 14px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-  animation: bubble-in 0.3s ease;
-}
-
-.speech-tail {
-  position: absolute;
-  top: -6px;
-  left: 50%;
-  transform: translateX(-50%) rotate(45deg);
-  width: 12px;
-  height: 12px;
-  background: #f2f4ff;
-}
-
-@keyframes bubble-in {
-  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
-  to { opacity: 1; transform: translateX(-50%) translateY(0); }
-}
-
-/* ---- Panel (activity + result) ---- */
-.panel {
+  margin: 0 10px 10px;
+  padding: 10px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  max-height: 46%;
-  overflow-y: auto;
+  gap: 8px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 12px 30px rgba(28, 36, 68, 0.18);
+  backdrop-filter: blur(8px);
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  pointer-events: none;
+  -webkit-app-region: no-drag;
+}
+.app:hover .dock,
+.dock:focus-within {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
 }
 
+/* ---- Activity ---- */
 .control-banner {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
-  color: var(--accent-2);
+  font-size: 13px;
+  color: #0b7f4f;
   padding: 8px 12px;
-  background: rgba(88, 224, 200, 0.08);
-  border: 1px solid rgba(88, 224, 200, 0.2);
+  background: rgba(86, 224, 139, 0.12);
+  border: 1px solid rgba(86, 224, 139, 0.3);
   border-radius: 10px;
 }
-
-.current-task {
-  font-size: 13px;
-  color: var(--text);
-  padding: 2px 4px;
-  opacity: 0.85;
-}
-
 .control-banner .dot {
   width: 8px;
   height: 8px;
@@ -173,10 +175,14 @@ canvas {
   background: var(--accent-2);
   animation: pulse 1s ease-in-out infinite;
 }
-
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.3; }
+}
+
+.current-task {
+  font-size: 13px;
+  padding: 2px 4px;
 }
 
 .steps {
@@ -186,34 +192,30 @@ canvas {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  max-height: 30vh;
+  overflow-y: auto;
 }
-
 .step {
   display: flex;
   align-items: flex-start;
   gap: 8px;
   font-size: 13px;
   padding: 6px 10px;
-  background: var(--panel);
-  border: 1px solid var(--border);
+  background: rgba(120, 140, 200, 0.08);
   border-radius: 8px;
 }
-
 .step.muted {
   color: var(--muted);
   font-style: italic;
 }
-
 .step-n {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
-
 .step-action {
   color: var(--accent);
   font-weight: 600;
 }
-
 .step-detail {
   flex: 1;
   color: var(--muted);
@@ -225,23 +227,18 @@ canvas {
   flex-direction: column;
   gap: 8px;
   padding: 12px;
-  background: var(--panel);
-  border: 1px solid var(--border);
+  background: rgba(120, 140, 200, 0.08);
   border-radius: 12px;
 }
-
 .result.error {
-  border-color: rgba(255, 107, 107, 0.35);
-  background: rgba(255, 107, 107, 0.08);
+  background: rgba(255, 107, 107, 0.1);
 }
-
 .verdict {
   display: flex;
   align-items: baseline;
   gap: 8px;
   flex-wrap: wrap;
 }
-
 .verdict-tag {
   font-size: 11px;
   font-weight: 700;
@@ -250,78 +247,80 @@ canvas {
   padding: 3px 9px;
   border-radius: 999px;
 }
-
 .verdict-approved .verdict-tag {
   color: #0f1117;
   background: var(--accent-2);
 }
-
 .verdict-rejected .verdict-tag {
   color: #fff;
   background: var(--stop);
 }
-
 .verdict-reason {
   font-size: 12px;
   color: var(--muted);
   flex: 1;
 }
-
 .result-summary {
-  font-size: 13px;
+  font-size: 14px;
 }
-
 .result-shot {
   width: 100%;
   border-radius: 8px;
   border: 1px solid var(--border);
 }
 
-/* ---- Input bar ---- */
+/* ---- Input + suggestions ---- */
+.suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chip {
+  padding: 7px 12px;
+  font-size: 12px;
+  color: var(--text);
+  background: rgba(120, 140, 200, 0.1);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.chip:hover {
+  border-color: var(--accent);
+}
+
 .input-bar {
   display: flex;
   gap: 8px;
 }
-
 .input-field {
   flex: 1;
   padding: 11px 14px;
-  font-size: 14px;
+  font-size: 15px;
   color: var(--text);
-  background: var(--panel);
+  background: #fff;
   border: 1px solid var(--border);
   border-radius: 12px;
   outline: none;
 }
-
 .input-field:focus {
   border-color: var(--accent);
 }
-
-.input-field::placeholder {
-  color: var(--muted);
-}
-
 .btn {
   padding: 11px 18px;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
-  color: #0f1117;
+  color: #fff;
   border: none;
   border-radius: 12px;
   cursor: pointer;
 }
-
 .btn-run {
   background: var(--accent);
 }
-
 .btn-run:disabled {
   opacity: 0.4;
   cursor: default;
 }
-
 .btn-stop {
   background: var(--stop);
-  color: #fff;
 }

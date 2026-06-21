@@ -50,19 +50,24 @@ function sendToSidecar(cmd: object) {
 
 function createWindow() {
   win = new BrowserWindow({
-    width: 420,
-    height: 680,
+    width: 360,
+    height: 600,
     show: false,
     resizable: true,
-    titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 14, y: 16 },
-    backgroundColor: '#0f1117',
+    movable: true,
+    // Avatar-only: transparent, frameless, floats above everything.
+    transparent: true,
+    frame: false,
+    hasShadow: false,
+    alwaysOnTop: true,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false
     }
   })
 
+  win.setAlwaysOnTop(true, 'screen-saver')
+  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
   win.on('ready-to-show', () => win?.show())
 
   if (process.env.ELECTRON_RENDERER_URL) {
@@ -79,6 +84,11 @@ app.whenReady().then(() => {
     return id
   })
   ipcMain.on('agent:cancel', (_e, id: string) => sendToSidecar({ type: 'cancel', id }))
+
+  // Let the renderer pass clicks through transparent areas to the desktop.
+  ipcMain.on('window:setIgnoreMouseEvents', (_e, ignore: boolean, opts?: { forward?: boolean }) => {
+    win?.setIgnoreMouseEvents(ignore, opts)
+  })
 
   startSidecar()
   createWindow()

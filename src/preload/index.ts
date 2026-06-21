@@ -30,7 +30,11 @@ const api = {
     const listener = (_e: unknown, event: AgentEvent) => cb(event)
     ipcRenderer.on('agent:event', listener)
     return () => ipcRenderer.removeListener('agent:event', listener)
-  }
+  },
+
+  /** Pass clicks through transparent areas to the desktop. */
+  setIgnoreMouseEvents: (ignore: boolean, opts?: { forward?: boolean }): void =>
+    ipcRenderer.send('window:setIgnoreMouseEvents', ignore, opts)
 }
 
 contextBridge.exposeInMainWorld('shadow', api)
