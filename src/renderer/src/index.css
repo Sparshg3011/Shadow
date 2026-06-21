@@ -127,13 +127,13 @@ body {
   font-size: 18px;
   line-height: 1.4;
   padding: 14px 18px;
-  border-radius: 26px;
-  box-shadow:
-    0 10px 30px rgba(28, 36, 68, 0.22),
-    -34px 6px 0 -10px #fff,
-    34px 6px 0 -10px #fff,
-    -20px 22px 0 -8px #fff,
-    22px 22px 0 -8px #fff;
+  border-radius: 22px;
+  box-shadow: 0 10px 30px rgba(28, 36, 68, 0.22);
+  /* Long captions are bounded in SpeechCloud (JS), so the bubble stays clear of
+     the avatar/mic. max-height is just insurance; break-word handles long URLs. */
+  max-height: 220px;
+  overflow: hidden;
+  overflow-wrap: break-word;
 }
 
 .cloud-tail {
