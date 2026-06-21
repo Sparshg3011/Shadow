@@ -17,9 +17,9 @@ export function Scene({ state }: { state: AvatarState }) {
     <Canvas
       gl={{ alpha: true, antialias: true }}
       dpr={[1, 2]}
-      camera={{ position: [0, 1.62, 1.32], fov: 26 }}
+      camera={{ position: [0, 0.5, 4.2], fov: 30 }}
     >
-      <CameraRig target={[0, 1.52, 0]} />
+      <CameraRig target={[0, 0, 0]} />
 
       {/* Studio-style three-point lighting (no HDR dependency). */}
       <hemisphereLight args={['#ffffff', '#3a3a52', 0.85]} />

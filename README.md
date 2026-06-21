@@ -56,18 +56,20 @@ a summary. Use **Stop** or flick the mouse to a screen corner to abort at any ti
 
 ## Customizing the avatar
 
-The default avatar is bundled, so it works offline. To use your own, create one at
-[readyplayer.me](https://readyplayer.me) and set the GLB URL (include `?morphTargets=ARKit` for
-blink/lip movement):
+The avatar is **model-agnostic**: drop in any rigged GLB and it auto-scales, frames, and animates.
+A model with animation clips (like the default fox) loops its idle clip; a face-rigged Ready Player
+Me human uses ARKit morphs to blink and lip-sync. Point at your own model with:
 
 ```bash
-# .env
-VITE_SHADOW_AVATAR_URL=https://models.readyplayer.me/<your-id>.glb?morphTargets=ARKit
+# .env  — e.g. a cat GLB you have the rights to, or your own Ready Player Me avatar
+VITE_SHADOW_AVATAR_URL=https://example.com/your-cat.glb
 ```
+
+or replace `src/renderer/src/assets/avatar.glb`.
 
 ## Credits
 
-Default avatar from the [TalkingHead](https://github.com/met4citizen/TalkingHead) project, created
-with [Ready Player Me](https://readyplayer.me) (CC BY-NC-SA — non-commercial). Desktop automation by
-[Simular Agent-S](https://github.com/simular-ai/Agent-S). Visual grounding by
+Default avatar is the public-domain (CC0) low-poly fox from the
+[glTF Sample Assets](https://github.com/KhronosGroup/glTF-Sample-Assets) (PixelMannen / tomkranis).
+Desktop automation by [Simular Agent-S](https://github.com/simular-ai/Agent-S). Visual grounding by
 [UI-TARS](https://huggingface.co/ByteDance-Seed/UI-TARS-1.5-7B).
