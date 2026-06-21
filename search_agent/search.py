@@ -6,8 +6,11 @@ Each provider uses its own native web-search tool so no third-party scraper is n
 The contract is always the same: return up to 5 `[title — price](url)` markdown lines.
 """
 
+import logging
 import os
 import re
+
+_log = logging.getLogger(__name__)
 
 NUM_PRODUCTS = 5
 
@@ -96,6 +99,7 @@ def _search_anthropic(query: str) -> str:
     text = "\n".join(
         b.text for b in response.content if getattr(b, "type", None) == "text"
     ).strip()
+    _log.info("Anthropic raw text (%d chars): %r", len(text), text[:500])
     return _extract_links(text)
 
 

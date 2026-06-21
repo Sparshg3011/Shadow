@@ -138,10 +138,14 @@ def _format_chat(resp: OrchestrateResponse) -> str:
     """Render an OrchestrateResponse as readable chat text for ASI:One."""
     if not resp.products:
         return resp.message
-    lines = ["Here's what I found:"]
-    for p in resp.products:
-        price = f" — {p.price}" if p.price else ""
-        lines.append(f"• {p.title}{price}\n  {p.url}")
+    sep = "─" * 48
+    lines = [f"🛒 Found {len(resp.products)} product(s):\n{sep}"]
+    for i, p in enumerate(resp.products, 1):
+        lines.append(
+            f"{i}. {p.title}\n"
+            f"   🔗 Link  : {p.url}"
+        )
+        lines.append(sep)
     return "\n".join(lines)
 
 
