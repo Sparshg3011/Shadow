@@ -32,6 +32,8 @@ class OrchestrateResponse(Model):
     status: str  # "ok" | "unknown_intent" | "timeout" | "error"
     message: str
     products: Optional[list[Product]] = None
+    args: Optional[dict] = None
+    agent: Optional[str] = None
 
 
 class HealthResponse(Model):

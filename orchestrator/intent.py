@@ -16,6 +16,13 @@ INTENTS: dict[str, str] = {
         "milk', 'find me a water bottle', or 'order eggs' — anything that "
         "should return shoppable Amazon product links."
     ),
+    "restaurant_reservation": (
+        "User wants to find nearby restaurants, make a restaurant reservation, "
+        "or search for places to eat. Includes requests like 'find restaurants "
+        "in Paris', 'book a table for 4 on Friday at 7pm', or 'where can I eat "
+        "in New York for 2 people tonight' — anything that needs restaurant "
+        "search and Yelp reservation links."
+    ),
     "unknown": "Anything that does not match another intent.",
 }
 

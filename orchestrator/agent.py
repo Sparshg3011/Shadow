@@ -31,7 +31,7 @@ from .models import (
     OrchestrateResponse,
     Product,
 )
-from .routing import AMAZON_AGENT_ADDRESS, downstream_for, forward_to_downstream
+from .routing import AMAZON_AGENT_ADDRESS, RESTAURANT_AGENT_ADDRESS, ROUTES, downstream_for, forward_to_downstream
 from .session import PendingEntry, discard, pop_for_sender
 
 load_dotenv()
@@ -53,8 +53,18 @@ chat_proto = Protocol(spec=chat_protocol_spec)
 # --------------------------------------------------------------------------- #
 # Shared result shaping
 # --------------------------------------------------------------------------- #
+def _agent_name_for(intent: str) -> str | None:
+    addr = ROUTES.get(intent)
+    if not addr:
+        return None
+    for name, a in [("amazon_search_agent", AMAZON_AGENT_ADDRESS), ("restaurant_agent", RESTAURANT_AGENT_ADDRESS)]:
+        if a and addr == a:
+            return name
+    return addr
+
+
 def build_response(
-    session_id: str, intent: str, reply_text: str
+    session_id: str, intent: str, reply_text: str, args: dict | None = None
 ) -> OrchestrateResponse:
     products = parse_products(reply_text)
     return OrchestrateResponse(
@@ -63,6 +73,8 @@ def build_response(
         status="ok",
         message=reply_text,
         products=products or None,
+        args=args or None,
+        agent=_agent_name_for(intent),
     )
 
 
@@ -73,8 +85,9 @@ def build_response(
 async def handle_chat(ctx: Context, sender: str, msg: ChatMessage):
     await ctx.send(sender, make_ack(msg.msg_id))
 
-    # Case 1: a reply from the downstream Amazon agent -> correlate it back.
-    if sender == AMAZON_AGENT_ADDRESS:
+    # Case 1: a reply from any downstream agent -> correlate it back.
+    _downstream_addresses = {a for a in (AMAZON_AGENT_ADDRESS, RESTAURANT_AGENT_ADDRESS) if a}
+    if sender in _downstream_addresses:
         reply_text = extract_text(msg)
         ctx.logger.info(
             "Downstream msg from Amazon: types=%s text_len=%d",
@@ -123,8 +136,9 @@ async def handle_chat(ctx: Context, sender: str, msg: ChatMessage):
         await ctx.send(
             sender,
             create_text_chat(
-                "I can currently help with Amazon grocery orders. "
-                "Try asking me to order or find grocery products."
+                "I can currently help with Amazon grocery orders and restaurant reservations. "
+                "Try asking me to find grocery products, or to find restaurants in a location "
+                "with a date, time, and number of people."
             ),
         )
 
@@ -139,13 +153,22 @@ def _format_chat(resp: OrchestrateResponse) -> str:
     if not resp.products:
         return resp.message
     sep = "─" * 48
-    lines = [f"🛒 Found {len(resp.products)} product(s):\n{sep}"]
-    for i, p in enumerate(resp.products, 1):
-        lines.append(
-            f"{i}. {p.title}\n"
-            f"   🔗 Link  : {p.url}"
-        )
-        lines.append(sep)
+    if resp.intent == "restaurant_reservation":
+        lines = [f"🍽️ Found {len(resp.products)} restaurant(s):\n{sep}"]
+        for i, p in enumerate(resp.products, 1):
+            lines.append(
+                f"{i}. {p.title}\n"
+                f"   🔗 Reserve: {p.url}"
+            )
+            lines.append(sep)
+    else:
+        lines = [f"🛒 Found {len(resp.products)} product(s):\n{sep}"]
+        for i, p in enumerate(resp.products, 1):
+            lines.append(
+                f"{i}. {p.title}\n"
+                f"   🔗 Link  : {p.url}"
+            )
+            lines.append(sep)
     return "\n".join(lines)
 
 
@@ -167,6 +190,8 @@ async def handle_classify(
             status="unknown_intent",
             message="No downstream skill matched this request.",
             products=None,
+            args=args or None,
+            agent=None,
         )
 
     loop = asyncio.get_event_loop()
@@ -186,9 +211,11 @@ async def handle_classify(
             status="timeout",
             message="The downstream agent did not respond in time.",
             products=None,
+            args=args or None,
+            agent=_agent_name_for(intent),
         )
 
-    return build_response(session_id, intent, reply_text)
+    return build_response(session_id, intent, reply_text, args)
 
 
 @agent.on_rest_get("/health", HealthResponse)

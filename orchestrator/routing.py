@@ -8,13 +8,18 @@ from .chat_utils import create_session_chat
 from .session import PendingEntry, register
 
 AMAZON_AGENT_ADDRESS = os.getenv(
-    "AMAZON_AGENT_ADDRESS",
-    "agent1qg3gqlzxxcdvtmkx5fr4grlnuct4f43cvp9xgm2z2kg48g2rrn4aq98y6uz",
+    "AMAZON_AGENT_ADDRESS"
+)
+
+RESTAURANT_AGENT_ADDRESS = os.getenv(
+    "RESTAURANT_AGENT_ADDRESS",
+    "",
 )
 
 # intent name -> downstream agent address
 ROUTES: dict[str, str] = {
     "amazon_grocery_order": AMAZON_AGENT_ADDRESS,
+    "restaurant_reservation": RESTAURANT_AGENT_ADDRESS,
 }
 
 
