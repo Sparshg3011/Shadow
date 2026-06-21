@@ -22,6 +22,7 @@ from screenshot import (
     looks_blank,
     scaled_dims,
 )
+from verify import verify
 
 # Moving the mouse to a screen corner aborts execution — a manual kill switch.
 pyautogui.FAILSAFE = True
@@ -149,15 +150,23 @@ class AgentRunner:
             time.sleep(self.cfg.action_delay)
             emit({"type": "screenshot", "data": capture_base64(1200), "final": False})
 
-        emit({"type": "done", "screenshot": capture_base64(),
-              "summary": "I hit the step limit before finishing — here's where I got to."})
+        emit(self._verified_done(instruction,
+             "I hit the step limit before finishing — here's where I got to."))
 
     def _done(self, info: dict, instruction: str, ok: bool) -> dict:
         if ok:
             summary = "Done! " + (_detail(info) or f"Completed: {instruction}")
         else:
             summary = "I couldn't complete that. " + (_detail(info) or "")
-        return {"type": "done", "screenshot": capture_base64(), "summary": summary.strip()}
+        return self._verified_done(instruction, summary)
+
+    def _verified_done(self, instruction: str, summary: str) -> dict:
+        final = capture_base64(1280)
+        verdict, reason = "approved", ""
+        if self.cfg.verify and self.cfg.anthropic_api_key:
+            verdict, reason = verify(self.cfg.anthropic_api_key, self.cfg.gen_model, instruction, final)
+        return {"type": "done", "screenshot": final, "summary": summary.strip(),
+                "verdict": verdict, "reason": reason}
 
 
 def _permission_error() -> dict:

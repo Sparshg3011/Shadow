@@ -67,15 +67,28 @@ a summary. Use **Stop** or flick the mouse to a screen corner to abort at any ti
 ## Sending instructions from middleware
 
 The sidecar exposes a local HTTP endpoint so external middleware can submit a **list of
-instructions**. They're queued and run sequentially through the same agent, and the avatar/UI react
-just as they do for typed tasks.
+instructions**. They run sequentially through the same agent (the avatar/UI react as for typed
+tasks). By default the call **blocks until each task finishes, verifies the result from the final
+screen, and returns an approval verdict** — so middleware gets a real outcome, not just an ack.
 
 ```bash
 curl -X POST http://127.0.0.1:8765/instructions \
   -H "Content-Type: application/json" \
-  -d '{"instructions": ["open Notes", "type hello", "take a screenshot"]}'
-# -> 202 {"accepted": ["<id>", ...], "count": 3}
+  -d '{"instructions": ["open Notes and type hello"]}'
+# -> 200 {
+#   "status": "approved",                       // "rejected" if any task failed verification
+#   "results": [
+#     { "instruction": "open Notes and type hello",
+#       "verdict": "approved",                  // per-task verdict
+#       "reason": "Notes is open with 'hello' typed",
+#       "summary": "...", "id": "..." }
+#   ]
+# }
 ```
+
+The verdict comes from a final check: Claude looks at the end screen and judges whether the goal was
+met (set `SHADOW_VERIFY=0` to skip it). For long batches, give your HTTP client a generous timeout.
+Add `"wait": false` to fire-and-forget instead (returns `202 {"accepted": [...]}` immediately).
 
 Configure host/port and an optional auth token in `.env` (`SHADOW_HTTP_HOST`, `SHADOW_HTTP_PORT`,
 `SHADOW_HTTP_TOKEN`). It binds to `127.0.0.1` by default. **This endpoint controls your computer** —

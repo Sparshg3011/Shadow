@@ -7,7 +7,14 @@ export type AgentEvent =
   | { type: 'status'; id?: string; state: 'idle' | 'thinking' | 'working' }
   | { type: 'step'; id?: string; action: string; detail: string; n: number }
   | { type: 'screenshot'; id?: string; data: string; final: boolean }
-  | { type: 'done'; id?: string; screenshot: string; summary: string }
+  | {
+      type: 'done'
+      id?: string
+      screenshot: string
+      summary: string
+      verdict?: 'approved' | 'rejected'
+      reason?: string
+    }
   | { type: 'error'; id?: string; code: string; message: string }
 
 const api = {

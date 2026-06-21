@@ -12,6 +12,8 @@ export interface Step {
 export interface AgentResult {
   screenshot?: string
   summary?: string
+  verdict?: 'approved' | 'rejected'
+  reason?: string
 }
 
 export interface AgentError {
@@ -72,7 +74,12 @@ export function useAgent(): UseAgent {
           if (!ev.final) setLiveShot(ev.data)
           break
         case 'done':
-          setResult({ screenshot: ev.screenshot, summary: ev.summary })
+          setResult({
+            screenshot: ev.screenshot,
+            summary: ev.summary,
+            verdict: ev.verdict,
+            reason: ev.reason
+          })
           setRunning(false)
           setState('talking')
           if (talkTimer.current) clearTimeout(talkTimer.current)

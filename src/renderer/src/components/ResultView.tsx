@@ -17,6 +17,12 @@ export function ResultView({ result, error }: Props) {
 
   return (
     <div className="result">
+      {result.verdict && (
+        <div className={`verdict verdict-${result.verdict}`}>
+          <span className="verdict-tag">{result.verdict}</span>
+          {result.reason && <span className="verdict-reason">{result.reason}</span>}
+        </div>
+      )}
       {result.summary && <div className="result-summary">{result.summary}</div>}
       {result.screenshot && (
         <img

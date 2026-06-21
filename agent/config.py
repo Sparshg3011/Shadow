@@ -21,6 +21,7 @@ class Config:
     engine: str
     effort: str
     reflection: bool
+    verify: bool
     display_max: int
     keep_images: int
     gen_model: str
@@ -45,6 +46,8 @@ class Config:
             effort=os.getenv("SHADOW_EFFORT", "medium").strip(),
             # Agent-S reflection adds an LLM call per step; off by default for speed.
             reflection=os.getenv("SHADOW_REFLECTION", "0").strip() not in ("", "0", "false", "False"),
+            # Final verification: judge approved/rejected from the end screen. On by default.
+            verify=os.getenv("SHADOW_VERIFY", "1").strip() not in ("", "0", "false", "False"),
             # Native engine: cap the screenshot long edge (smaller = faster, fewer tokens).
             display_max=int(os.getenv("SHADOW_DISPLAY_MAX", "1280")),
             # Native engine: keep only the most recent N screenshots in context.

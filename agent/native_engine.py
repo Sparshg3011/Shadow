@@ -22,6 +22,7 @@ import pyautogui
 import actions as A
 from config import Config
 from screenshot import CaptureError, capture_resized_b64, looks_blank, scaled_dims
+from verify import verify
 
 COMPUTER_TOOL = "computer_20251124"
 COMPUTER_BETA = "computer-use-2025-11-24"
@@ -91,7 +92,7 @@ class NativeRunner:
             messages.append({"role": "assistant", "content": resp.content})
 
             if not tool_uses:  # stop_reason: end_turn — task finished
-                emit({"type": "done", "screenshot": self._final(), "summary": last_text or "Done."})
+                self._done(emit, instruction, last_text or "Done.")
                 return
 
             tool_results = []
@@ -122,8 +123,15 @@ class NativeRunner:
             _prune_old_images(messages, self.cfg.keep_images)  # keep context (and calls) small
             emit({"type": "status", "state": "thinking"})
 
-        emit({"type": "done", "screenshot": self._final(),
-              "summary": (last_text + " (reached the step limit)").strip()})
+        self._done(emit, instruction, (last_text + " (reached the step limit)").strip())
+
+    def _done(self, emit: Emit, instruction: str, summary: str):
+        final = self._final()
+        verdict, reason = "approved", ""
+        if self.cfg.verify and self.cfg.anthropic_api_key:
+            verdict, reason = verify(self.cfg.anthropic_api_key, self.cfg.gen_model, instruction, final)
+        emit({"type": "done", "screenshot": final, "summary": summary,
+              "verdict": verdict, "reason": reason})
 
     def _final(self) -> str:
         return capture_resized_b64(*self.scaled)

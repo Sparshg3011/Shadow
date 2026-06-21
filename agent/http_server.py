@@ -1,12 +1,15 @@
 """Local HTTP endpoint so middleware can POST a list of instructions.
 
 POST /instructions
-    body:    {"instructions": ["open notes", "type hello"]}
+    body:    {"instructions": ["open notes", "type hello"], "wait": true}
     header:  Authorization: Bearer <token>   (only if SHADOW_HTTP_TOKEN is set)
-    returns: 202 {"accepted": ["<id>", ...], "count": N}
 
-Each instruction is enqueued and run sequentially by the agent, emitting the
-same status/step/done events the UI already reacts to.
+    Default (wait=true): runs each instruction to completion, verifies the
+    result, and returns an approval verdict:
+        200 {"status": "approved"|"rejected",
+             "results": [{"instruction", "verdict", "reason", "summary", "id"}, ...]}
+    Fire-and-forget (wait=false): queues and returns immediately:
+        202 {"accepted": ["<id>", ...], "count": N}
 
 GET /health -> {"status": "ok"}
 """
@@ -20,8 +23,14 @@ from flask import Flask, jsonify, request
 from config import Config
 
 
-def start_http(enqueue: Callable[[str, str], str], cfg: Config) -> None:
-    """Start the Flask server on a daemon thread. `enqueue(instruction, source) -> id`."""
+def start_http(enqueue: Callable[[str, str], str],
+               run_sync: Callable[[str], dict],
+               cfg: Config) -> None:
+    """Start the Flask server on a daemon thread.
+
+    enqueue(instruction, source) -> id   (fire-and-forget)
+    run_sync(instruction) -> verdict dict (blocks until done + verified)
+    """
     app = Flask(__name__)
     logging.getLogger("werkzeug").setLevel(logging.WARNING)
 
@@ -38,8 +47,16 @@ def start_http(enqueue: Callable[[str, str], str], cfg: Config) -> None:
         items = data.get("instructions")
         if not isinstance(items, list) or not all(isinstance(x, str) for x in items):
             return jsonify({"error": "'instructions' must be a list of strings"}), 400
-        ids = [enqueue(x.strip(), "api") for x in items if x.strip()]
-        return jsonify({"accepted": ids, "count": len(ids)}), 202
+
+        cleaned = [x.strip() for x in items if x.strip()]
+        if data.get("wait", True) is False:
+            ids = [enqueue(x, "api") for x in cleaned]
+            return jsonify({"accepted": ids, "count": len(ids)}), 202
+
+        # Synchronous: run each, verify, and return an approval verdict.
+        results = [run_sync(x) for x in cleaned]
+        approved = bool(results) and all(r["verdict"] == "approved" for r in results)
+        return jsonify({"status": "approved" if approved else "rejected", "results": results}), 200
 
     @app.get("/health")
     def health():
