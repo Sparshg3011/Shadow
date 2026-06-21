@@ -16,7 +16,11 @@ function agentPaths() {
 
 function startSidecar() {
   const { python, script, cwd } = agentPaths()
-  sidecar = spawn(python, [script], { cwd })
+  // PYTHONUNBUFFERED guards against block-buffered stdout delaying events.
+  sidecar = spawn(python, [script], {
+    cwd,
+    env: { ...process.env, PYTHONUNBUFFERED: '1' }
+  })
 
   // Each stdout line is one JSON event — forward it to the renderer.
   createInterface({ input: sidecar.stdout }).on('line', (raw) => {
