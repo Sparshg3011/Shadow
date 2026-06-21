@@ -349,25 +349,7 @@ body {
   border: 1px solid var(--border);
 }
 
-/* ---- Input + suggestions ---- */
-.suggestions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.chip {
-  padding: 7px 12px;
-  font-size: 12px;
-  color: var(--text);
-  background: rgba(120, 140, 200, 0.1);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  cursor: pointer;
-}
-.chip:hover {
-  border-color: var(--accent);
-}
-
+/* ---- Input ---- */
 .input-bar {
   display: flex;
   gap: 8px;

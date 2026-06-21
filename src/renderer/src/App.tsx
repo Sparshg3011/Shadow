@@ -7,7 +7,6 @@ import { VoiceToggle } from './components/VoiceToggle'
 import { InstructionInput } from './components/InstructionInput'
 import { ActivityLog } from './components/ActivityLog'
 import { ResultView } from './components/ResultView'
-import { Suggestions } from './components/Suggestions'
 import { EmotionGallery } from './components/EmotionGallery'
 
 function emotionFor(agent: ReturnType<typeof useAgent>): SunnyEmotion {
@@ -73,7 +72,6 @@ export default function App() {
           current={agent.current}
         />
         <ResultView result={agent.result} error={agent.error} />
-        {idle && <Suggestions onPick={agent.run} />}
         <InstructionInput running={agent.running} onRun={agent.run} onCancel={agent.cancel} />
       </div>
 
