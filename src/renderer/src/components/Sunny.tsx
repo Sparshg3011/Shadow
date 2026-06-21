@@ -1,88 +1,168 @@
 import { useEffect, useRef } from 'react'
 import type { MutableRefObject } from 'react'
 
-export type SunnyState = 'idle' | 'listening' | 'thinking' | 'talking' | 'happy' | 'confirming'
+export type SunnyEmotion =
+  | 'idle'
+  | 'listening'
+  | 'thinking'
+  | 'talking'
+  | 'happy'
+  | 'excited'
+  | 'panic'
+  | 'surprised'
+  | 'confused'
+  | 'proud'
+  | 'sad'
+  | 'mischievous'
 
 interface Props {
-  state: SunnyState
-  /** 0..1 mouth openness (driven by TTS amplitude); auto-oscillates when talking if absent. */
+  emotion: SunnyEmotion
+  /** 0..1 mouth openness while talking (TTS amplitude); auto-oscillates if absent. */
   amplitudeRef?: MutableRefObject<number>
 }
 
-// Glow colour for the antenna orb + chest light per state.
-const ORB: Record<SunnyState, string> = {
-  idle: '#7fd4ff',
-  listening: '#56e08b',
-  thinking: '#ffc46b',
-  talking: '#7fd4ff',
-  happy: '#ffd34d',
-  confirming: '#ffb04d'
+type Cfg = {
+  orb: string
+  /** eye scale-x, scale-y, y-offset (round-eye emotions) */
+  eye: [number, number, number]
+  bob: [number, number] // amplitude, speed
+  jitter: number
+  blink: boolean
 }
 
-/** An original, friendly screen-faced robot. Animated imperatively to avoid re-renders. */
-export function Sunny({ state, amplitudeRef }: Props) {
-  const stateRef = useRef<SunnyState>(state)
+const C: Record<SunnyEmotion, Cfg> = {
+  idle: { orb: '#7fd4ff', eye: [1, 1, 0], bob: [4, 1.5], jitter: 0, blink: true },
+  listening: { orb: '#56e08b', eye: [1.12, 1.2, -1], bob: [3, 1.7], jitter: 0, blink: true },
+  thinking: { orb: '#ffc46b', eye: [1, 1, -5], bob: [3, 1.2], jitter: 0, blink: true },
+  talking: { orb: '#7fd4ff', eye: [1, 1, 0], bob: [4, 1.7], jitter: 0, blink: true },
+  happy: { orb: '#ffd34d', eye: [1, 1, 0], bob: [7, 4.2], jitter: 0, blink: false },
+  excited: { orb: '#ff7ad9', eye: [1, 1, 0], bob: [10, 6.2], jitter: 0, blink: false },
+  panic: { orb: '#ff5a5a', eye: [1.18, 1.3, 0], bob: [2, 2], jitter: 2.6, blink: true },
+  surprised: { orb: '#ffd34d', eye: [1.22, 1.32, -2], bob: [3, 2], jitter: 0, blink: false },
+  confused: { orb: '#b08bff', eye: [1, 1, 0], bob: [3, 1.3], jitter: 0, blink: true },
+  proud: { orb: '#ffd34d', eye: [1, 1, 0], bob: [5, 1.5], jitter: 0, blink: false },
+  sad: { orb: '#6f8bd0', eye: [0.95, 0.8, 4], bob: [2, 1], jitter: 0, blink: true },
+  mischievous: { orb: '#c77bff', eye: [1.05, 0.55, 1], bob: [4, 1.9], jitter: 0, blink: true }
+}
+
+const ARC_EYES: SunnyEmotion[] = ['happy', 'proud']
+const STAR_EYES: SunnyEmotion[] = ['excited']
+
+function mouthKind(e: SunnyEmotion): 'smile' | 'grin' | 'open' | 'o' | 'squiggle' | 'smirk' | 'frown' {
+  if (e === 'talking') return 'open'
+  if (e === 'happy') return 'grin'
+  if (e === 'excited') return 'open'
+  if (e === 'panic' || e === 'surprised') return 'o'
+  if (e === 'confused') return 'squiggle'
+  if (e === 'mischievous' || e === 'proud') return 'smirk'
+  if (e === 'sad') return 'frown'
+  return 'smile'
+}
+
+// Brow rotation (deg) per side; the mischievous/confused look raises one.
+function brows(e: SunnyEmotion): [number, number, number] {
+  // [leftDeg, rightDeg, yOffset]
+  switch (e) {
+    case 'thinking':
+    case 'panic':
+    case 'sad':
+      return [14, -14, 2] // furrowed
+    case 'surprised':
+    case 'excited':
+      return [0, 0, -5] // raised
+    case 'mischievous':
+      return [-18, 6, -1] // one cocked
+    case 'confused':
+      return [-12, 10, -1]
+    default:
+      return [0, 0, 0]
+  }
+}
+
+/** Sunny — an original, expressive screen-faced robot with a cheeky soul. */
+export function Sunny({ emotion, amplitudeRef }: Props) {
+  const eRef = useRef<SunnyEmotion>(emotion)
   useEffect(() => {
-    stateRef.current = state
-  }, [state])
+    eRef.current = emotion
+  }, [emotion])
 
   const root = useRef<SVGGElement>(null)
+  const eyesG = useRef<SVGGElement>(null)
   const eyeL = useRef<SVGEllipseElement>(null)
   const eyeR = useRef<SVGEllipseElement>(null)
-  const mouth = useRef<SVGRectElement>(null)
-  const smile = useRef<SVGPathElement>(null)
-  const orb = useRef<SVGGElement>(null)
-  const eyes = useRef<SVGGElement>(null)
+  const mouthOpen = useRef<SVGRectElement>(null)
 
   useEffect(() => {
     let raf = 0
     const t0 = performance.now()
     let blink = 0
-    let nextBlink = 1.5
+    let next = 1.6
+    let winkAt = 7 + Math.random() * 6 // spontaneous mischief while idle
+    let wink = 0
+    let sx = 1
+    let sy = 1
+    let dy = 0
 
     const tick = (now: number) => {
       const t = (now - t0) / 1000
-      const s = stateRef.current
+      const e = eRef.current
+      const cfg = C[e]
 
-      // Hover bob (livelier when happy).
-      const bob = (s === 'happy' ? 7 : 4) * Math.sin(t * (s === 'happy' ? 4 : 1.5))
-      root.current?.setAttribute('transform', `translate(0 ${bob.toFixed(2)})`)
+      // Bob + panic jitter.
+      const bob = cfg.bob[0] * Math.sin(t * cfg.bob[1])
+      const jx = cfg.jitter ? (Math.random() - 0.5) * cfg.jitter * 2 : 0
+      const jy = cfg.jitter ? (Math.random() - 0.5) * cfg.jitter * 2 : 0
+      root.current?.setAttribute('transform', `translate(${jx.toFixed(2)} ${(bob + jy).toFixed(2)})`)
 
-      // Blink.
-      if (t > nextBlink) {
+      // Round-eye scale/offset ease toward the emotion target.
+      sx += (cfg.eye[0] - sx) * 0.18
+      sy += (cfg.eye[1] - sy) * 0.18
+      dy += (cfg.eye[2] - dy) * 0.18
+      eyesG.current?.setAttribute(
+        'transform',
+        `translate(120 ${112 + dy}) scale(${sx.toFixed(3)} ${sy.toFixed(3)}) translate(-120 -112)`
+      )
+
+      // Blink (+ occasional idle wink for personality).
+      if (cfg.blink && t > next && blink <= 0) {
         blink = 1
-        nextBlink = t + 2.4 + Math.random() * 3
+        next = t + 2.4 + Math.random() * 3
       }
-      let openY = 1
+      if (e === 'idle' && t > winkAt && wink <= 0) {
+        wink = 1
+        winkAt = t + 7 + Math.random() * 7
+        root.current?.style.setProperty('--orb', C.mischievous.orb) // a cheeky flash
+      }
+      let ryL = 15
+      let ryR = 15
       if (blink > 0) {
         blink -= 0.12
-        openY = Math.max(0.08, Math.abs(Math.cos(Math.min((1 - blink) * Math.PI, Math.PI))))
-        if (blink <= 0) openY = 1
+        const v = Math.max(0.08, Math.abs(Math.sin(blink * Math.PI)))
+        ryL = ryR = 15 * (blink <= 0 ? 1 : v)
+        if (blink <= 0) ryL = ryR = 15
       }
-      // Listening = wide eyes; happy = gentle squint.
-      const eyeScale = s === 'listening' ? 1.18 : s === 'happy' ? 0.7 : 1
-      const ry = 15 * openY * eyeScale
-      eyeL.current?.setAttribute('ry', ry.toFixed(2))
-      eyeR.current?.setAttribute('ry', ry.toFixed(2))
-      // Look up a touch while thinking.
-      eyes.current?.setAttribute('transform', `translate(0 ${s === 'thinking' ? -4 : 0})`)
-
-      // Mouth: open with amplitude while talking, else show the smile.
-      const talking = s === 'talking'
-      const amp = amplitudeRef ? amplitudeRef.current : 0.5 + 0.5 * Math.sin(t * 11)
-      const open = talking ? Math.max(0.05, Math.min(amp, 1)) : 0
-      const mh = 3 + open * 22
-      if (mouth.current) {
-        mouth.current.setAttribute('height', mh.toFixed(2))
-        mouth.current.setAttribute('y', (140 - mh / 2).toFixed(2))
-        mouth.current.setAttribute('opacity', talking ? '1' : '0')
+      if (wink > 0) {
+        wink -= 0.05
+        ryR = 15 * Math.max(0.08, Math.abs(Math.sin(wink * Math.PI))) // close right eye
+        if (wink <= 0) ryR = 15
       }
-      smile.current?.setAttribute('opacity', talking ? '0' : '1')
+      eyeL.current?.setAttribute('ry', ryL.toFixed(2))
+      eyeR.current?.setAttribute('ry', ryR.toFixed(2))
 
-      // Orb / chest colour + pulse (set on root so antenna + chest inherit).
-      root.current?.style.setProperty('--orb', ORB[s])
-      const pulse = 0.55 + 0.45 * Math.sin(t * (s === 'listening' ? 6 : s === 'thinking' ? 4 : 2))
-      root.current?.style.setProperty('--pulse', pulse.toFixed(2))
+      // Talking mouth opens with amplitude.
+      if (mouthOpen.current) {
+        const amp = amplitudeRef ? amplitudeRef.current : 0.5 + 0.5 * Math.sin(t * 11)
+        const open = e === 'talking' ? Math.max(0.06, Math.min(amp, 1)) : 0
+        const h = 4 + open * 22
+        mouthOpen.current.setAttribute('height', h.toFixed(2))
+        mouthOpen.current.setAttribute('y', (140 - h / 2).toFixed(2))
+        mouthOpen.current.setAttribute('opacity', e === 'talking' ? '1' : '0')
+      }
+
+      // Orb / chest colour + pulse.
+      if (!(e === 'idle' && wink > 0)) root.current?.style.setProperty('--orb', cfg.orb)
+      const speed = e === 'listening' ? 6 : e === 'panic' ? 9 : e === 'thinking' ? 4 : 2
+      root.current?.style.setProperty('--pulse', (0.55 + 0.45 * Math.sin(t * speed)).toFixed(2))
 
       raf = requestAnimationFrame(tick)
     }
@@ -90,8 +170,14 @@ export function Sunny({ state, amplitudeRef }: Props) {
     return () => cancelAnimationFrame(raf)
   }, [amplitudeRef])
 
+  const arc = ARC_EYES.includes(emotion)
+  const star = STAR_EYES.includes(emotion)
+  const round = !arc && !star
+  const mk = mouthKind(emotion)
+  const [bl, br, by] = brows(emotion)
+
   return (
-    <svg viewBox="0 0 240 300" className="sunny" xmlns="http://www.w3.org/2000/svg">
+    <svg viewBox="0 0 240 320" className="sunny" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <radialGradient id="headG" cx="38%" cy="30%">
           <stop offset="0%" stopColor="#fdfbff" />
@@ -117,37 +203,74 @@ export function Sunny({ state, amplitudeRef }: Props) {
       <g ref={root}>
         {/* antenna */}
         <line x1="120" y1="34" x2="120" y2="14" stroke="#aab6e0" strokeWidth="5" strokeLinecap="round" />
-        <g ref={orb} className="orb">
+        <g className="orb">
           <circle cx="120" cy="10" r="9" className="orb-glow" filter="url(#glow)" />
           <circle cx="120" cy="10" r="6" className="orb-core" />
         </g>
 
-        {/* small body / torso */}
+        {/* body + chest */}
         <rect x="74" y="206" width="92" height="74" rx="30" fill="url(#bodyG)" filter="url(#soft)" />
-        <circle cx="120" cy="244" r="11" className="chest orb" filter="url(#glow)" />
+        <circle cx="120" cy="244" r="11" className="chest" filter="url(#glow)" />
 
         {/* ears */}
         <rect x="22" y="92" width="20" height="46" rx="10" fill="#cdd7f5" />
         <rect x="198" y="92" width="20" height="46" rx="10" fill="#cdd7f5" />
 
-        {/* head */}
+        {/* head + face screen */}
         <rect x="36" y="40" width="168" height="160" rx="46" fill="url(#headG)" filter="url(#soft)" />
-        {/* face screen */}
         <rect x="58" y="66" width="124" height="108" rx="34" fill="#1c2444" />
 
-        {/* eyes */}
-        <g ref={eyes} filter="url(#glow)">
-          <ellipse ref={eyeL} cx="100" cy="112" rx="11" ry="15" className="feature" />
-          <ellipse ref={eyeR} cx="140" cy="112" rx="11" ry="15" className="feature" />
+        {/* brows */}
+        <g className="feature-stroke" opacity={bl || br || by ? 0.9 : 0}>
+          <line x1="88" y1={90 + by} x2="112" y2={90 + by} transform={`rotate(${bl} 100 ${90 + by})`} />
+          <line x1="128" y1={90 + by} x2="152" y2={90 + by} transform={`rotate(${br} 140 ${90 + by})`} />
         </g>
-        {/* cheeks */}
-        <circle cx="84" cy="138" r="7" fill="#ff9bb0" opacity="0.55" />
-        <circle cx="156" cy="138" r="7" fill="#ff9bb0" opacity="0.55" />
-        {/* mouth (smile when quiet, opens when talking) */}
+
+        {/* eyes — round (animated), happy arcs, or sparkle stars */}
         <g filter="url(#glow)">
-          <path ref={smile} d="M104 138 Q120 150 136 138" fill="none" className="feature-stroke" />
-          <rect ref={mouth} x="108" y="134" width="24" height="6" rx="4" className="feature" opacity="0" />
+          <g ref={eyesG} opacity={round ? 1 : 0}>
+            <ellipse ref={eyeL} cx="100" cy="112" rx="11" ry="15" className="feature" />
+            <ellipse ref={eyeR} cx="140" cy="112" rx="11" ry="15" className="feature" />
+          </g>
+          {arc && (
+            <g className="feature-stroke">
+              <path d="M88 116 Q100 102 112 116" fill="none" />
+              <path d="M128 116 Q140 102 152 116" fill="none" />
+            </g>
+          )}
+          {star && (
+            <g className="feature">
+              <path d="M100 100 l4 9 10 1 -7 7 2 10 -9 -5 -9 5 2 -10 -7 -7 10 -1z" />
+              <path d="M140 100 l4 9 10 1 -7 7 2 10 -9 -5 -9 5 2 -10 -7 -7 10 -1z" />
+            </g>
+          )}
         </g>
+
+        {/* cheeks (brighter when happy/excited/mischievous) */}
+        <circle cx="84" cy="138" r="7" fill="#ff9bb0" opacity={['happy', 'excited', 'mischievous', 'proud'].includes(emotion) ? 0.8 : 0.45} />
+        <circle cx="156" cy="138" r="7" fill="#ff9bb0" opacity={['happy', 'excited', 'mischievous', 'proud'].includes(emotion) ? 0.8 : 0.45} />
+
+        {/* mouth */}
+        <g filter="url(#glow)">
+          {mk === 'smile' && <path d="M104 138 Q120 150 136 138" fill="none" className="feature-stroke" />}
+          {mk === 'grin' && <path d="M98 136 Q120 158 142 136 Q120 146 98 136z" className="feature" />}
+          {mk === 'o' && <circle cx="120" cy="142" r="8" className="feature" />}
+          {mk === 'smirk' && <path d="M106 142 Q124 150 138 134" fill="none" className="feature-stroke" />}
+          {mk === 'frown' && <path d="M106 146 Q120 134 134 146" fill="none" className="feature-stroke" />}
+          {mk === 'squiggle' && <path d="M104 140 q6 -7 11 0 q6 7 11 0" fill="none" className="feature-stroke" />}
+          <rect ref={mouthOpen} x="108" y="134" width="24" height="6" rx="5" className="feature" opacity="0" />
+        </g>
+
+        {/* accessories */}
+        {emotion === 'panic' && <path d="M176 86 q7 12 0 20 q-7 -8 0 -20z" fill="#7fd4ff" opacity="0.9" />}
+        {emotion === 'sad' && <ellipse cx="106" cy="128" rx="3.5" ry="5" fill="#7fd4ff" opacity="0.9" />}
+        {emotion === 'confused' && <text x="184" y="70" fill="#b08bff" fontSize="30" fontWeight="700">?</text>}
+        {(emotion === 'excited' || emotion === 'happy') && (
+          <g fill="#ffd34d">
+            <path d="M52 70 l2 5 5 2 -5 2 -2 5 -2 -5 -5 -2 5 -2z" />
+            <path d="M190 58 l2 6 6 2 -6 2 -2 6 -2 -6 -6 -2 6 -2z" />
+          </g>
+        )}
       </g>
     </svg>
   )
