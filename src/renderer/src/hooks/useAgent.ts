@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { AgentEvent } from '../../../preload/index'
+import type { AgentEvent } from '../ipc'
 
 export type AvatarState = 'idle' | 'thinking' | 'talking'
 
@@ -25,6 +25,7 @@ export interface UseAgent {
   result: AgentResult | null
   error: AgentError | null
   running: boolean
+  current: string | null
   liveShot: string | null
   run: (instruction: string) => void
   cancel: () => void
@@ -38,6 +39,7 @@ export function useAgent(): UseAgent {
   const [result, setResult] = useState<AgentResult | null>(null)
   const [error, setError] = useState<AgentError | null>(null)
   const [running, setRunning] = useState(false)
+  const [current, setCurrent] = useState<string | null>(null)
   const [liveShot, setLiveShot] = useState<string | null>(null)
   const taskId = useRef<string | null>(null)
   const talkTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -46,10 +48,22 @@ export function useAgent(): UseAgent {
     if (!window.shadow) return
     return window.shadow.onEvent((ev: AgentEvent) => {
       switch (ev.type) {
+        case 'queued':
+          // A task arrived (from the UI or the HTTP endpoint) — reset for it.
+          setSteps([])
+          setResult(null)
+          setError(null)
+          setLiveShot(null)
+          setRunning(true)
+          setCurrent(ev.instruction)
+          break
         case 'status':
           // The avatar stays "thinking" while planning and acting.
           if (ev.state === 'idle') setState('idle')
-          else setState('thinking')
+          else {
+            setState('thinking')
+            setRunning(true)
+          }
           break
         case 'step':
           setSteps((s) => [...s, { action: ev.action, detail: ev.detail, n: ev.n }])
@@ -81,6 +95,7 @@ export function useAgent(): UseAgent {
     setError(null)
     setLiveShot(null)
     setRunning(true)
+    setCurrent(text)
     setState('thinking')
     taskId.current = (await window.shadow?.runTask(text)) ?? null
   }, [])
@@ -88,8 +103,9 @@ export function useAgent(): UseAgent {
   const cancel = useCallback(() => {
     if (taskId.current) window.shadow?.cancel(taskId.current)
     setRunning(false)
+    setCurrent(null)
     setState('idle')
   }, [])
 
-  return { state, steps, result, error, running, liveShot, run, cancel }
+  return { state, steps, result, error, running, current, liveShot, run, cancel }
 }

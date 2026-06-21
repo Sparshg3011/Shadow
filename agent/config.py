@@ -25,6 +25,9 @@ class Config:
     action_delay: float
     grounding_width: int
     grounding_height: int
+    http_host: str
+    http_port: int
+    http_token: str
 
     @classmethod
     def load(cls) -> "Config":
@@ -38,6 +41,10 @@ class Config:
             # How many recent screenshots Agent-S keeps in its context window.
             traj_window=int(os.getenv("SHADOW_TRAJ_WINDOW", "8")),
             action_delay=float(os.getenv("SHADOW_ACTION_DELAY", "0.5")),
+            # Local HTTP endpoint for middleware to POST instructions.
+            http_host=os.getenv("SHADOW_HTTP_HOST", "127.0.0.1").strip(),
+            http_port=int(os.getenv("SHADOW_HTTP_PORT", "8765")),
+            http_token=os.getenv("SHADOW_HTTP_TOKEN", "").strip(),
             # UI-TARS coordinate space (the grounding model reasons at this resolution).
             grounding_width=int(os.getenv("SHADOW_GROUNDING_WIDTH", "1920")),
             grounding_height=int(os.getenv("SHADOW_GROUNDING_HEIGHT", "1080")),

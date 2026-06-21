@@ -54,6 +54,24 @@ Type an instruction (or tap a suggestion chip). Shadow plans the task with Claud
 action with UI-TARS, performs it, and shows you a screenshot of the result while the avatar speaks
 a summary. Use **Stop** or flick the mouse to a screen corner to abort at any time.
 
+## Sending instructions from middleware
+
+The sidecar exposes a local HTTP endpoint so external middleware can submit a **list of
+instructions**. They're queued and run sequentially through the same agent, and the avatar/UI react
+just as they do for typed tasks.
+
+```bash
+curl -X POST http://127.0.0.1:8765/instructions \
+  -H "Content-Type: application/json" \
+  -d '{"instructions": ["open Notes", "type hello", "take a screenshot"]}'
+# -> 202 {"accepted": ["<id>", ...], "count": 3}
+```
+
+Configure host/port and an optional auth token in `.env` (`SHADOW_HTTP_HOST`, `SHADOW_HTTP_PORT`,
+`SHADOW_HTTP_TOKEN`). It binds to `127.0.0.1` by default. **This endpoint controls your computer** —
+set `SHADOW_HTTP_TOKEN` (sent as `Authorization: Bearer <token>`) before exposing it beyond
+localhost. `GET /health` returns `{"status":"ok"}`.
+
 ## Customizing the avatar
 
 The avatar is **model-agnostic**: drop in any rigged GLB and it auto-scales, frames, and animates.

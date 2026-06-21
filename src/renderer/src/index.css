@@ -159,6 +159,13 @@ canvas {
   border-radius: 10px;
 }
 
+.current-task {
+  font-size: 13px;
+  color: var(--text);
+  padding: 2px 4px;
+  opacity: 0.85;
+}
+
 .control-banner .dot {
   width: 8px;
   height: 8px;

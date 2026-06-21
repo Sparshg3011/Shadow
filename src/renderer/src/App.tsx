@@ -20,7 +20,12 @@ export default function App() {
       </div>
 
       <div className="panel">
-        <ActivityLog state={agent.state} running={agent.running} steps={agent.steps} />
+        <ActivityLog
+          state={agent.state}
+          running={agent.running}
+          steps={agent.steps}
+          current={agent.current}
+        />
         <ResultView result={agent.result} error={agent.error} />
       </div>
 

@@ -1,19 +1,21 @@
-"""Shadow Python sidecar — a stdio JSON bridge between Electron and Agent-S.
+"""Shadow Python sidecar — bridges Electron (stdio) and middleware (HTTP) to Agent-S.
 
-Reads newline-delimited JSON commands on stdin:
-  {"type": "run_task", "id": "...", "instruction": "..."}
-  {"type": "cancel",   "id": "..."}
+Commands arrive two ways and feed one sequential task queue:
+  - stdin JSON: {"type":"run_task","id":"...","instruction":"..."} / {"type":"cancel"}
+  - HTTP POST /instructions: {"instructions": [...]}  (see http_server.py)
 
-Emits newline-delimited JSON events on stdout (each carries the task id):
-  ready / status / step / screenshot / done / error
+Events stream on stdout, one JSON object per line:
+  ready / queued / status / step / screenshot / done / error  (each carries the task id)
 
-stdout is reserved for JSON only — Agent-S and its dependencies print to stdout,
-so we redirect their output to stderr up front.
+stdout is reserved for JSON only — Agent-S and its deps print to stdout, so we
+redirect their output to stderr up front.
 """
 import json
 import os
+import queue
 import sys
 import threading
+import uuid
 
 # Reserve real stdout for JSON; send everything else (library prints, logs) to stderr.
 _OUT = sys.stdout
@@ -23,52 +25,71 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from agent_runner import AgentRunner  # noqa: E402
 from config import Config  # noqa: E402
+from http_server import start_http  # noqa: E402
 
 
 class Sidecar:
     def __init__(self):
-        self._lock = threading.Lock()
-        self._current_id = None
+        self._queue: queue.Queue = queue.Queue()
         self._cancel = threading.Event()
         self._runner = None  # built lazily on first task
+        self._current_id = None
 
     def send(self, event: dict):
         _OUT.write(json.dumps(event) + "\n")
         _OUT.flush()
 
-    def handle(self, cmd: dict):
+    def enqueue(self, instruction: str, source: str) -> str:
+        task_id = str(uuid.uuid4())
+        self._queue.put((task_id, instruction))
+        self.send({"type": "queued", "id": task_id, "instruction": instruction, "source": source})
+        return task_id
+
+    def handle_stdin(self, cmd: dict):
         ctype = cmd.get("type")
         if ctype == "run_task":
-            self._start(cmd.get("id"), cmd.get("instruction", ""))
+            task_id = cmd.get("id") or str(uuid.uuid4())
+            self._queue.put((task_id, cmd.get("instruction", "")))
+            self.send({"type": "queued", "id": task_id,
+                       "instruction": cmd.get("instruction", ""), "source": "ui"})
         elif ctype == "cancel":
+            self._drain()
             self._cancel.set()
 
-    def _start(self, task_id, instruction: str):
-        with self._lock:
-            if self._current_id is not None:
-                self.send({"type": "error", "id": task_id, "code": "busy",
-                           "message": "A task is already running."})
-                return
+    def _drain(self):
+        """Discard pending tasks (used on cancel)."""
+        try:
+            while True:
+                self._queue.get_nowait()
+                self._queue.task_done()
+        except queue.Empty:
+            pass
+
+    def _worker(self):
+        while True:
+            task_id, instruction = self._queue.get()
             self._current_id = task_id
             self._cancel.clear()
-        threading.Thread(target=self._worker, args=(task_id, instruction), daemon=True).start()
 
-    def _worker(self, task_id, instruction: str):
-        def emit(ev: dict):
-            self.send({**ev, "id": task_id})
+            def emit(ev: dict):
+                self.send({**ev, "id": task_id})
 
-        try:
-            if self._runner is None:
-                self._runner = AgentRunner(Config.load())
-            self._runner.run(instruction, emit, should_cancel=self._cancel.is_set)
-        except Exception as exc:  # building or running blew up
-            emit({"type": "error", "code": "unknown", "message": str(exc)})
-        finally:
-            with self._lock:
+            try:
+                if self._runner is None:
+                    self._runner = AgentRunner(Config.load())
+                self._runner.run(instruction, emit, should_cancel=self._cancel.is_set)
+            except Exception as exc:
+                emit({"type": "error", "code": "unknown", "message": str(exc)})
+            finally:
                 self._current_id = None
+                self._queue.task_done()
 
     def loop(self):
+        cfg = Config.load()
+        threading.Thread(target=self._worker, daemon=True).start()
+        start_http(self.enqueue, cfg)
         self.send({"type": "ready"})
+
         for line in sys.stdin:
             line = line.strip()
             if not line:
@@ -78,7 +99,7 @@ class Sidecar:
             except json.JSONDecodeError:
                 self.send({"type": "error", "code": "unknown", "message": "invalid JSON command"})
                 continue
-            self.handle(cmd)
+            self.handle_stdin(cmd)
 
 
 if __name__ == "__main__":

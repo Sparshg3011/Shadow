@@ -3,6 +3,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 /** Event payloads the sidecar streams back. */
 export type AgentEvent =
   | { type: 'ready' }
+  | { type: 'queued'; id: string; instruction: string; source: 'ui' | 'api' }
   | { type: 'status'; id?: string; state: 'idle' | 'thinking' | 'working' }
   | { type: 'step'; id?: string; action: string; detail: string; n: number }
   | { type: 'screenshot'; id?: string; data: string; final: boolean }

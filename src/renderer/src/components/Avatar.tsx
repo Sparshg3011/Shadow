@@ -55,7 +55,7 @@ export function Avatar({ state }: Props) {
   // Face morph meshes (present on Ready Player Me humans, absent on the fox).
   const morphMeshes = useMemo(() => {
     const list: THREE.Mesh[] = []
-    scene.traverse((o) => {
+    scene.traverse((o: THREE.Object3D) => {
       const m = o as THREE.Mesh
       if (m.isMesh && m.morphTargetDictionary && m.morphTargetInfluences) list.push(m)
     })
@@ -82,7 +82,9 @@ export function Avatar({ state }: Props) {
     if (!hasClips || !idleClip) return
     const action = actions[idleClip]
     action?.reset().fadeIn(0.3).play()
-    return () => action?.fadeOut(0.3)
+    return () => {
+      action?.fadeOut(0.3)
+    }
   }, [hasClips, idleClip, actions])
 
   useEffect(() => {
