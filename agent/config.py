@@ -48,10 +48,11 @@ class Config:
             reflection=os.getenv("SHADOW_REFLECTION", "0").strip() not in ("", "0", "false", "False"),
             # Final verification: judge approved/rejected from the end screen. On by default.
             verify=os.getenv("SHADOW_VERIFY", "1").strip() not in ("", "0", "false", "False"),
-            # Native engine: cap the screenshot long edge (smaller = faster, fewer tokens).
-            display_max=int(os.getenv("SHADOW_DISPLAY_MAX", "1280")),
+            # Native engine: cap the screenshot long edge. Big enough to read URLs/text
+            # (a 1440-wide screen stays native); lower it only if you want raw speed.
+            display_max=int(os.getenv("SHADOW_DISPLAY_MAX", "1568")),
             # Native engine: keep only the most recent N screenshots in context.
-            keep_images=int(os.getenv("SHADOW_KEEP_IMAGES", "3")),
+            keep_images=int(os.getenv("SHADOW_KEEP_IMAGES", "4")),
             gen_model=os.getenv("SHADOW_GEN_MODEL", "claude-opus-4-8").strip(),
             ground_model=os.getenv("SHADOW_GROUND_MODEL", "bytedance/ui-tars-1.5-7b").strip(),
             # Hard cap on agent loop iterations (runaway/cost guard).

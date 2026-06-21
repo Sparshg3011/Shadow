@@ -2,8 +2,11 @@
 
 One Claude call per step: Claude looks at a screenshot, reasons, and issues an
 action — it grounds itself, so there is no separate grounding model or extra
-planner/reflection round-trips. Much faster and more coherent than Agent-S, and
-Claude's own reasoning text becomes the activity-log detail.
+planner/reflection round-trips.
+
+A focused system prompt keeps it self-aware (read the screen, check results,
+don't invent URLs), and harness-level loop detection stops it from repeating a
+failed action and burning credits.
 
 Exposes NativeRunner.run(instruction, emit, should_cancel) — same contract as
 AgentRunner — so the sidecar can use either engine interchangeably.
@@ -28,6 +31,46 @@ COMPUTER_TOOL = "computer_20251124"
 COMPUTER_BETA = "computer-use-2025-11-24"
 
 Emit = Callable[[dict], None]
+
+SYSTEM_PROMPT = """You are Shadow, controlling a macOS computer to complete the user's task. \
+You see the screen only through screenshots and act with the mouse and keyboard.
+
+STAY AWARE OF WHAT YOU ARE DOING:
+- Look at the latest screenshot before every action and act on what you actually SEE, not on assumptions.
+- After acting, check the next screenshot to confirm it worked. If the screen did not change or the action \
+failed, do NOT repeat the same action — work out why and try something different.
+- Never do the same thing twice expecting a different result. If an action already failed once, change \
+your approach. If you are about to repeat it a third time, stop and reconsider, or report that you are stuck.
+
+URLS AND NAVIGATION:
+- Do NOT invent, guess, or recall URLs from memory — that produces invalid URLs. Only type a URL if the \
+user gave you the exact address or you can read it on the current screen.
+- To open a site: open the browser, focus the address bar (Cmd+L), select all (Cmd+A), type the exact URL \
+or a search query, then press Return.
+- To reach a page, prefer clicking a visible link or searching over typing a URL you are unsure about.
+
+MACOS:
+- Open or switch to any app via Spotlight: press Cmd+Space, type the app name, press Return — even if it \
+looks already open.
+- Cmd+A then type replaces a field's contents; Return submits.
+
+BE EFFICIENT AND FINISH:
+- Use the fewest actions possible. A fresh screenshot is provided after every action, so do not waste steps \
+taking extra screenshots.
+- When the task is done, stop and state briefly what you accomplished.
+- If the task cannot be completed (a login wall, a missing element, an ambiguous request), stop and explain \
+— do not loop."""
+
+_NUDGE = (
+    "You appear to be repeating the same action without making progress. Stop. "
+    "Look carefully at the current screenshot, determine why your last attempt did not work, and either "
+    "take a clearly different action or, if the task cannot be done, stop and explain."
+)
+
+
+def _sig(inp: dict) -> str:
+    """A signature identifying an action, for loop detection."""
+    return "|".join(str(inp.get(k, "")) for k in ("action", "coordinate", "text", "scroll_direction"))
 
 
 class NativeRunner:
@@ -60,6 +103,7 @@ class NativeRunner:
             "display_width_px": self.scaled[0],
             "display_height_px": self.scaled[1],
         }]
+        system = [{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}]
         # Seed the first screenshot so the agent can act immediately (saves a step).
         messages = [{"role": "user", "content": [
             {"type": "text", "text": instruction},
@@ -70,6 +114,9 @@ class NativeRunner:
         emit({"type": "status", "state": "thinking"})
 
         last_text = ""
+        sigs: list[str] = []
+        nudged = False
+
         for step in range(self.cfg.max_steps):
             if should_cancel():
                 emit({"type": "status", "state": "idle"})
@@ -78,6 +125,7 @@ class NativeRunner:
             resp = self.client.beta.messages.create(
                 model=self.cfg.gen_model,
                 max_tokens=4096,
+                system=system,
                 thinking={"type": "adaptive"},
                 output_config={"effort": self.cfg.effort},
                 tools=tools,
@@ -109,6 +157,7 @@ class NativeRunner:
                 if action not in ("screenshot", "cursor_position"):
                     A.execute_action(inp, self.screen, self.scaled)
                     time.sleep(self.cfg.action_delay)
+                sigs.append(_sig(inp))
 
                 shot = capture_resized_b64(*self.scaled)
                 tool_results.append({
@@ -119,8 +168,21 @@ class NativeRunner:
                 })
                 emit({"type": "screenshot", "data": shot, "final": False})
 
+            # Loop detection over the recent action window.
+            repeats = sigs[-6:].count(sigs[-1])
+            if repeats >= 4:
+                messages.append({"role": "user", "content": tool_results})
+                self._done(emit, instruction,
+                           "I kept repeating the same action without progress, so I stopped.")
+                return
+            if repeats >= 3 and not nudged:
+                tool_results.append({"type": "text", "text": _NUDGE})
+                nudged = True
+            elif repeats < 3:
+                nudged = False
+
             messages.append({"role": "user", "content": tool_results})
-            _prune_old_images(messages, self.cfg.keep_images)  # keep context (and calls) small
+            _prune_old_images(messages, self.cfg.keep_images)
             emit({"type": "status", "state": "thinking"})
 
         self._done(emit, instruction, (last_text + " (reached the step limit)").strip())
