@@ -32,6 +32,8 @@ body {
 .app {
   position: relative;
   height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 /* ---- Dev emotion gallery (/?gallery) ---- */
@@ -64,19 +66,18 @@ body {
 }
 
 /* ---- Sunny + speech cloud ---- */
-/* Avatar zone: fills the window above the mic, with the cloud + robot centered. */
+/* Avatar zone: flexes to fill leftover space; shrinks (never overlaps) when the
+   dock opens. The robot scales down to fit via max-height on .sunny. */
 .sunny-stage {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 84px; /* leave room for the floating mic */
+  position: relative;
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 12px;
+  padding: 10px;
 }
 
 .drag-region {
@@ -86,8 +87,10 @@ body {
 }
 
 .sunny {
-  width: 240px;
+  width: auto;
   height: 300px;
+  max-height: 100%; /* scale down to fit when the dock opens — no overlap */
+  max-width: 100%;
   display: block;
   overflow: visible;
   -webkit-app-region: drag;
@@ -163,10 +166,9 @@ body {
 
 /* ---- Floating mic button (always visible; primary entry to voice) ---- */
 .voice-btn {
-  position: absolute;
-  bottom: 16px;
-  left: 50%;
-  transform: translateX(-50%);
+  flex: none;
+  align-self: center;
+  margin: 8px 0 16px;
   width: 56px;
   height: 56px;
   display: grid;
@@ -182,7 +184,7 @@ body {
   -webkit-app-region: no-drag;
 }
 .voice-btn:active {
-  transform: translateX(-50%) scale(0.94);
+  transform: scale(0.94);
 }
 .voice-btn.on {
   background: var(--accent-2);
@@ -206,13 +208,8 @@ body {
 
 /* ---- Control dock (reveals on hover; voice is the primary path) ---- */
 .dock {
-  position: absolute;
-  left: 10px;
-  right: 10px;
-  bottom: 84px; /* float just above the mic, don't reserve layout space */
-  max-height: calc(100% - 100px);
-  overflow-y: auto;
-  padding: 10px;
+  flex: none;
+  margin: 0 10px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -221,16 +218,21 @@ body {
   border-radius: 16px;
   box-shadow: 0 12px 30px rgba(28, 36, 68, 0.18);
   backdrop-filter: blur(8px);
+  /* Collapsed by default; expands on hover. In-flow so it shrinks the avatar
+     band instead of overlapping it. */
+  max-height: 0;
+  padding: 0 10px;
   opacity: 0;
-  transform: translateY(12px);
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  overflow: hidden;
+  transition: max-height 0.25s ease, padding 0.25s ease, opacity 0.2s ease;
   pointer-events: none;
   -webkit-app-region: no-drag;
 }
 .app:hover .dock,
 .dock:focus-within {
+  max-height: 62vh;
+  padding: 10px;
   opacity: 1;
-  transform: translateY(0);
   pointer-events: auto;
 }
 

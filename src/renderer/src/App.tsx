@@ -65,13 +65,6 @@ export default function App() {
         <Sunny emotion={emotion} amplitudeRef={voice.amplitudeRef} />
       </div>
 
-      <VoiceToggle
-        enabled={voice.enabled}
-        listening={voice.listening}
-        speaking={voice.speaking}
-        onToggle={voice.toggle}
-      />
-
       <div className="dock">
         <ActivityLog
           state={agent.state}
@@ -83,6 +76,13 @@ export default function App() {
         {idle && <Suggestions onPick={agent.run} />}
         <InstructionInput running={agent.running} onRun={agent.run} onCancel={agent.cancel} />
       </div>
+
+      <VoiceToggle
+        enabled={voice.enabled}
+        listening={voice.listening}
+        speaking={voice.speaking}
+        onToggle={voice.toggle}
+      />
     </div>
   )
 }
