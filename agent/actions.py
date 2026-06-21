@@ -48,7 +48,8 @@ def _map(coord, screen, scaled):
     return x * screen[0] / scaled[0], y * screen[1] / scaled[1]
 
 
-def execute_action(inp: dict, screen: tuple[int, int], scaled: tuple[int, int]):
+def execute_action(inp: dict, screen: tuple[int, int], scaled: tuple[int, int],
+                   scroll_scale: int = 5):
     """Run one computer-use action. Screenshot/cursor_position are no-ops here
     (the caller captures the resulting screen for the tool result)."""
     action = inp.get("action")
@@ -82,12 +83,14 @@ def execute_action(inp: dict, screen: tuple[int, int], scaled: tuple[int, int]):
         if coord:
             x, y = _map(coord, screen, scaled)
             pyautogui.moveTo(x, y)
-        amount = int(inp.get("scroll_amount", 3))
+        # The model's scroll_amount is a few wheel "clicks"; clamp it and scale
+        # gently so we nudge instead of flinging past the target.
+        amount = max(1, min(int(inp.get("scroll_amount", 3)), 10)) * scroll_scale
         direction = inp.get("scroll_direction", "down")
         if direction in ("down", "up"):
-            pyautogui.scroll((amount if direction == "up" else -amount) * 100)
+            pyautogui.scroll(amount if direction == "up" else -amount)
         elif direction in ("left", "right"):
-            pyautogui.hscroll((amount if direction == "right" else -amount) * 100)
+            pyautogui.hscroll(amount if direction == "right" else -amount)
     elif action == "wait":
         time.sleep(min(float(inp.get("duration", 1)), 3))
     # screenshot / cursor_position: nothing to do here.

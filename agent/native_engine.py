@@ -42,6 +42,13 @@ failed, do NOT repeat the same action — work out why and try something differe
 - Never do the same thing twice expecting a different result. If an action already failed once, change \
 your approach. If you are about to repeat it a third time, stop and reconsider, or report that you are stuck.
 
+CLICKING AND SCROLLING:
+- To scroll to an off-screen element, scroll a SMALL amount (scroll_amount 1-3), then look at the new \
+screenshot before scrolling again. Do not scroll in large jumps or several times in a row — you will fly \
+past your target.
+- Once the element you want is visible, STOP scrolling and click it. Aim for the centre of a button or \
+control, and only click it when it is fully visible and not under another window.
+
 URLS AND NAVIGATION:
 - Do NOT invent, guess, or recall URLs from memory — that produces invalid URLs. Only type a URL if the \
 user gave you the exact address or you can read it on the current screen.
@@ -155,7 +162,7 @@ class NativeRunner:
                     emit({"type": "status", "state": "idle"})
                     return
                 if action not in ("screenshot", "cursor_position"):
-                    A.execute_action(inp, self.screen, self.scaled)
+                    A.execute_action(inp, self.screen, self.scaled, self.cfg.scroll_scale)
                     time.sleep(self.cfg.action_delay)
                 sigs.append(_sig(inp))
 

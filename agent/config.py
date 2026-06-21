@@ -24,6 +24,7 @@ class Config:
     verify: bool
     display_max: int
     keep_images: int
+    scroll_scale: int
     gen_model: str
     ground_model: str
     max_steps: int
@@ -53,6 +54,8 @@ class Config:
             display_max=int(os.getenv("SHADOW_DISPLAY_MAX", "1568")),
             # Native engine: keep only the most recent N screenshots in context.
             keep_images=int(os.getenv("SHADOW_KEEP_IMAGES", "4")),
+            # Wheel clicks per unit of the model's scroll_amount. Lower = gentler scrolling.
+            scroll_scale=int(os.getenv("SHADOW_SCROLL_SCALE", "5")),
             gen_model=os.getenv("SHADOW_GEN_MODEL", "claude-opus-4-8").strip(),
             ground_model=os.getenv("SHADOW_GROUND_MODEL", "bytedance/ui-tars-1.5-7b").strip(),
             # Hard cap on agent loop iterations (runaway/cost guard).
