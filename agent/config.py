@@ -20,7 +20,8 @@ class Config:
     openrouter_api_key: str
     gen_model: str
     ground_model: str
-    max_trajectory: int
+    max_steps: int
+    traj_window: int
     action_delay: float
     grounding_width: int
     grounding_height: int
@@ -32,7 +33,10 @@ class Config:
             openrouter_api_key=os.getenv("OPENROUTER_API_KEY", "").strip(),
             gen_model=os.getenv("SHADOW_GEN_MODEL", "claude-opus-4-8").strip(),
             ground_model=os.getenv("SHADOW_GROUND_MODEL", "bytedance/ui-tars-1.5-7b").strip(),
-            max_trajectory=int(os.getenv("SHADOW_MAX_TRAJECTORY", "15")),
+            # Hard cap on agent loop iterations (runaway/cost guard).
+            max_steps=int(os.getenv("SHADOW_MAX_TRAJECTORY", "15")),
+            # How many recent screenshots Agent-S keeps in its context window.
+            traj_window=int(os.getenv("SHADOW_TRAJ_WINDOW", "8")),
             action_delay=float(os.getenv("SHADOW_ACTION_DELAY", "0.5")),
             # UI-TARS coordinate space (the grounding model reasons at this resolution).
             grounding_width=int(os.getenv("SHADOW_GROUNDING_WIDTH", "1920")),
