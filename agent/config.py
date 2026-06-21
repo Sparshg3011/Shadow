@@ -21,6 +21,8 @@ class Config:
     engine: str
     effort: str
     reflection: bool
+    display_max: int
+    keep_images: int
     gen_model: str
     ground_model: str
     max_steps: int
@@ -43,6 +45,10 @@ class Config:
             effort=os.getenv("SHADOW_EFFORT", "medium").strip(),
             # Agent-S reflection adds an LLM call per step; off by default for speed.
             reflection=os.getenv("SHADOW_REFLECTION", "0").strip() not in ("", "0", "false", "False"),
+            # Native engine: cap the screenshot long edge (smaller = faster, fewer tokens).
+            display_max=int(os.getenv("SHADOW_DISPLAY_MAX", "1280")),
+            # Native engine: keep only the most recent N screenshots in context.
+            keep_images=int(os.getenv("SHADOW_KEEP_IMAGES", "3")),
             gen_model=os.getenv("SHADOW_GEN_MODEL", "claude-opus-4-8").strip(),
             ground_model=os.getenv("SHADOW_GROUND_MODEL", "bytedance/ui-tars-1.5-7b").strip(),
             # Hard cap on agent loop iterations (runaway/cost guard).

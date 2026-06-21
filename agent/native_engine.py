@@ -21,7 +21,7 @@ import pyautogui
 
 import actions as A
 from config import Config
-from screenshot import CaptureError, capture_scaled_b64, looks_blank, scaled_dims
+from screenshot import CaptureError, capture_resized_b64, looks_blank, scaled_dims
 
 COMPUTER_TOOL = "computer_20251124"
 COMPUTER_BETA = "computer-use-2025-11-24"
@@ -34,7 +34,7 @@ class NativeRunner:
         self.cfg = cfg
         self.client = anthropic.Anthropic(api_key=cfg.anthropic_api_key)
         self.screen = tuple(pyautogui.size())
-        self.scaled = scaled_dims(*self.screen)
+        self.scaled = scaled_dims(*self.screen, cfg.display_max)
 
     def run(self, instruction: str, emit: Emit, should_cancel: Callable[[], bool] = lambda: False):
         try:
@@ -59,7 +59,13 @@ class NativeRunner:
             "display_width_px": self.scaled[0],
             "display_height_px": self.scaled[1],
         }]
-        messages = [{"role": "user", "content": [{"type": "text", "text": instruction}]}]
+        # Seed the first screenshot so the agent can act immediately (saves a step).
+        messages = [{"role": "user", "content": [
+            {"type": "text", "text": instruction},
+            {"type": "image",
+             "source": {"type": "base64", "media_type": "image/png",
+                        "data": capture_resized_b64(*self.scaled)}},
+        ]}]
         emit({"type": "status", "state": "thinking"})
 
         last_text = ""
@@ -103,7 +109,7 @@ class NativeRunner:
                     A.execute_action(inp, self.screen, self.scaled)
                     time.sleep(self.cfg.action_delay)
 
-                shot, _, _ = capture_scaled_b64(*self.screen)
+                shot = capture_resized_b64(*self.scaled)
                 tool_results.append({
                     "type": "tool_result",
                     "tool_use_id": tu.id,
@@ -113,14 +119,37 @@ class NativeRunner:
                 emit({"type": "screenshot", "data": shot, "final": False})
 
             messages.append({"role": "user", "content": tool_results})
+            _prune_old_images(messages, self.cfg.keep_images)  # keep context (and calls) small
             emit({"type": "status", "state": "thinking"})
 
         emit({"type": "done", "screenshot": self._final(),
               "summary": (last_text + " (reached the step limit)").strip()})
 
     def _final(self) -> str:
-        shot, _, _ = capture_scaled_b64(*self.screen)
-        return shot
+        return capture_resized_b64(*self.scaled)
+
+
+def _prune_old_images(messages: list, keep: int):
+    """Replace all but the most recent `keep` screenshots with a placeholder,
+    so each step's request stays small as the task grows."""
+    if keep <= 0:
+        return
+    slots = []  # (containing list, index) of every image block
+    for msg in messages:
+        content = msg.get("content") if isinstance(msg, dict) else None
+        if not isinstance(content, list):
+            continue
+        for i, block in enumerate(content):
+            if not isinstance(block, dict):
+                continue
+            if block.get("type") == "image":
+                slots.append((content, i))
+            elif block.get("type") == "tool_result" and isinstance(block.get("content"), list):
+                for j, b in enumerate(block["content"]):
+                    if isinstance(b, dict) and b.get("type") == "image":
+                        slots.append((block["content"], j))
+    for lst, idx in slots[:-keep]:
+        lst[idx] = {"type": "text", "text": "(screenshot from an earlier step omitted)"}
 
 
 def _permission_error() -> dict:
