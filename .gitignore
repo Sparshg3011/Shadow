@@ -1,0 +1,26 @@
+# Secrets — never commit
+.env
+.env.local
+*.local
+
+# Python
+agent/.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Node / Electron
+node_modules/
+dist/
+out/
+.vite/
+*.log
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Runtime artifacts
+/tmp/
+agent/*.png
