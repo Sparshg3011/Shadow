@@ -12,8 +12,7 @@ AMAZON_AGENT_ADDRESS = os.getenv(
 )
 
 RESTAURANT_AGENT_ADDRESS = os.getenv(
-    "RESTAURANT_AGENT_ADDRESS",
-    "",
+    "RESTAURANT_AGENT_ADDRESS"
 )
 
 # intent name -> downstream agent address

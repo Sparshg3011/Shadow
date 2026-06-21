@@ -63,6 +63,13 @@ def _agent_name_for(intent: str) -> str | None:
     return addr
 
 
+def _name_for_addr(addr: str) -> str:
+    for name, a in [("amazon", AMAZON_AGENT_ADDRESS), ("restaurant", RESTAURANT_AGENT_ADDRESS)]:
+        if a and addr == a:
+            return name
+    return addr
+
+
 def build_response(
     session_id: str, intent: str, reply_text: str, args: dict | None = None
 ) -> OrchestrateResponse:
@@ -90,7 +97,8 @@ async def handle_chat(ctx: Context, sender: str, msg: ChatMessage):
     if sender in _downstream_addresses:
         reply_text = extract_text(msg)
         ctx.logger.info(
-            "Downstream msg from Amazon: types=%s text_len=%d",
+            "Downstream msg from %s: types=%s text_len=%d",
+            _name_for_addr(sender),
             [type(c).__name__ for c in msg.content],
             len(reply_text),
         )
@@ -101,7 +109,10 @@ async def handle_chat(ctx: Context, sender: str, msg: ChatMessage):
 
         entry = pop_for_sender(sender)
         if entry is None:
-            ctx.logger.warning("Downstream reply with no pending session; dropping.")
+            ctx.logger.warning(
+                "Downstream reply from %s with no pending session; dropping.",
+                _name_for_addr(sender),
+            )
             return
 
         if entry.origin == "rest" and entry.future and not entry.future.done():
@@ -124,6 +135,7 @@ async def handle_chat(ctx: Context, sender: str, msg: ChatMessage):
     )
 
     if downstream_for(intent):
+        ctx.logger.info("Forwarding to %s | query=%r", _agent_name_for(intent) or intent, query)
         entry = PendingEntry(
             session_id=session_id,
             intent=intent,
@@ -194,6 +206,7 @@ async def handle_classify(
             agent=None,
         )
 
+    ctx.logger.info("REST classify | intent=%s | query=%r", intent, query)
     loop = asyncio.get_event_loop()
     future: asyncio.Future = loop.create_future()
     entry = PendingEntry(
