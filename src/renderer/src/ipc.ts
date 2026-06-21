@@ -16,11 +16,17 @@ export type AgentEvent =
     }
   | { type: 'error'; id?: string; code: string; message: string }
 
+export interface DeepgramCredential {
+  token: string
+  mode: 'access' | 'key'
+}
+
 export interface ShadowApi {
   runTask(instruction: string): Promise<string>
   cancel(id: string): void
   onEvent(cb: (event: AgentEvent) => void): () => void
   setIgnoreMouseEvents(ignore: boolean, opts?: { forward?: boolean }): void
+  mintDeepgramToken(): Promise<DeepgramCredential | null>
 }
 
 declare global {

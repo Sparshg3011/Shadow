@@ -1,11 +1,33 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, session } from 'electron'
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process'
 import { createInterface } from 'readline'
 import { randomUUID } from 'crypto'
 import { join } from 'path'
+import { DeepgramClient } from '@deepgram/sdk'
+
+import { readFileSync } from 'fs'
 
 let win: BrowserWindow | null = null
 let sidecar: ChildProcessWithoutNullStreams | null = null
+
+/** Load .env into process.env (the sidecar parses it itself; main needs the Deepgram key). */
+function loadEnv() {
+  for (const base of [app.getAppPath(), process.cwd()]) {
+    try {
+      for (const raw of readFileSync(join(base, '.env'), 'utf8').split('\n')) {
+        const line = raw.trim()
+        if (!line || line.startsWith('#')) continue
+        const eq = line.indexOf('=')
+        if (eq < 0) continue
+        const key = line.slice(0, eq).trim()
+        if (!process.env[key]) process.env[key] = line.slice(eq + 1).trim()
+      }
+      return
+    } catch {
+      // try the next candidate path
+    }
+  }
+}
 
 /** Resolve the Python sidecar paths; overridable via env for packaging. */
 function agentPaths() {
@@ -78,12 +100,33 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  loadEnv()
+
+  // Allow the renderer's voice layer to use the microphone.
+  session.defaultSession.setPermissionRequestHandler((_wc, permission, cb) => {
+    cb(permission === 'media')
+  })
+
   ipcMain.handle('agent:runTask', (_e, instruction: string) => {
     const id = randomUUID()
     sendToSidecar({ type: 'run_task', id, instruction })
     return id
   })
   ipcMain.on('agent:cancel', (_e, id: string) => sendToSidecar({ type: 'cancel', id }))
+
+  // Mint a short-lived Deepgram token for the renderer's voice layer. Tries an
+  // ephemeral access token (best for distribution); falls back to the local key
+  // when the Deepgram plan can't grant tokens — fine for a single-machine app.
+  ipcMain.handle('deepgram:token', async (): Promise<{ token: string; mode: 'access' | 'key' } | null> => {
+    const key = process.env.DEEPGRAM_API_KEY
+    if (!key) return null
+    try {
+      const grant = await new DeepgramClient({ apiKey: key }).auth.v1.tokens.grant()
+      return { token: grant.access_token, mode: 'access' }
+    } catch {
+      return { token: key, mode: 'key' }
+    }
+  })
 
   // Let the renderer pass clicks through transparent areas to the desktop.
   ipcMain.on('window:setIgnoreMouseEvents', (_e, ignore: boolean, opts?: { forward?: boolean }) => {

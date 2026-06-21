@@ -34,7 +34,11 @@ const api = {
 
   /** Pass clicks through transparent areas to the desktop. */
   setIgnoreMouseEvents: (ignore: boolean, opts?: { forward?: boolean }): void =>
-    ipcRenderer.send('window:setIgnoreMouseEvents', ignore, opts)
+    ipcRenderer.send('window:setIgnoreMouseEvents', ignore, opts),
+
+  /** Mint a short-lived Deepgram credential for the voice layer. */
+  mintDeepgramToken: (): Promise<{ token: string; mode: 'access' | 'key' } | null> =>
+    ipcRenderer.invoke('deepgram:token')
 }
 
 contextBridge.exposeInMainWorld('shadow', api)
