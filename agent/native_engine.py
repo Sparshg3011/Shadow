@@ -199,7 +199,16 @@ class NativeRunner:
                 nudged = False
 
             messages.append({"role": "user", "content": tool_results})
+            # Prune first (only on very long tasks), THEN place the cache
+            # breakpoints on the resulting state. Order matters: pruning rewrites
+            # old turns, so marking afterwards keeps the breakpoints byte-aligned
+            # with the content actually sent — the step that prunes pays a one-time
+            # cache miss, and every step after it re-reads the stable prefix.
             _prune_old_images(messages, self.cfg.keep_images)
+            # Cache the growing trajectory: a moving breakpoint on the last few
+            # tool-result turns lets each step re-read everything before it from
+            # cache instead of reprocessing every prior screenshot.
+            _mark_cache_breakpoints(messages)
             emit({"type": "status", "state": "thinking"})
 
         self._done(emit, instruction, (last_text + " (reached the step limit)").strip())
@@ -264,9 +273,41 @@ class NativeRunner:
         return capture_resized_b64(*self.scaled)
 
 
+def _mark_cache_breakpoints(messages: list, keep: int = 3):
+    """Put a prompt-cache breakpoint on the last `keep` tool-result turns.
+
+    With the system+tools breakpoint that gives four total (Anthropic's max). The
+    prefix before each breakpoint is byte-identical across steps, so every step
+    after the first re-reads the whole trajectory from cache — far less latency
+    and cost than reprocessing each prior screenshot.
+    """
+    user_turns = [
+        msg["content"]
+        for msg in messages
+        if isinstance(msg, dict)
+        and msg.get("role") == "user"
+        and isinstance(msg.get("content"), list)
+        and msg["content"]
+        and all(isinstance(b, dict) for b in msg["content"])
+    ]
+    for content in user_turns:  # clear any breakpoints from previous steps
+        for block in content:
+            block.pop("cache_control", None)
+    for content in user_turns[-keep:]:  # re-mark the most recent turns
+        content[-1]["cache_control"] = {"type": "ephemeral"}
+
+
+# Only start pruning once the trajectory is well past the cache window, so typical
+# tasks keep a byte-stable (fully cacheable) prefix the whole way through.
+_PRUNE_BATCH = 8
+
+
 def _prune_old_images(messages: list, keep: int):
-    """Replace all but the most recent `keep` screenshots with a placeholder,
-    so each step's request stays small as the task grows."""
+    """Replace older screenshots with a placeholder once a task runs long.
+
+    Pruning rewrites earlier turns and so invalidates the cache, so we only do it
+    in batches — when the number of screenshots exceeds `keep + _PRUNE_BATCH` —
+    rather than every step."""
     if keep <= 0:
         return
     slots = []  # (containing list, index) of every image block
@@ -283,6 +324,8 @@ def _prune_old_images(messages: list, keep: int):
                 for j, b in enumerate(block["content"]):
                     if isinstance(b, dict) and b.get("type") == "image":
                         slots.append((block["content"], j))
+    if len(slots) <= keep + _PRUNE_BATCH:
+        return  # within budget — keep the prefix stable for caching
     for lst, idx in slots[:-keep]:
         lst[idx] = {"type": "text", "text": "(screenshot from an earlier step omitted)"}
 

@@ -26,6 +26,7 @@ class Config:
     keep_images: int
     scroll_scale: int
     gen_model: str
+    chat_model: str
     ground_model: str
     max_steps: int
     traj_window: int
@@ -44,19 +45,27 @@ class Config:
             # "native" = Anthropic computer-use (one call/step, fast); "agent-s" = Simular Agent-S.
             engine=os.getenv("SHADOW_ENGINE", "native").strip().lower(),
             # Thinking/spend dial for the native engine: low | medium | high | max.
-            effort=os.getenv("SHADOW_EFFORT", "medium").strip(),
+            # "low" is Anthropic's recommended setting for snappy computer-use loops.
+            effort=os.getenv("SHADOW_EFFORT", "low").strip(),
             # Agent-S reflection adds an LLM call per step; off by default for speed.
             reflection=os.getenv("SHADOW_REFLECTION", "0").strip() not in ("", "0", "false", "False"),
             # Final verification: judge approved/rejected from the end screen. On by default.
             verify=os.getenv("SHADOW_VERIFY", "1").strip() not in ("", "0", "false", "False"),
-            # Native engine: cap the screenshot long edge. Big enough to read URLs/text
-            # (a 1440-wide screen stays native); lower it only if you want raw speed.
-            display_max=int(os.getenv("SHADOW_DISPLAY_MAX", "1568")),
+            # Native engine: cap the screenshot long edge. Anthropic recommends not
+            # exceeding ~1280px (WXGA) for computer-use — it's 2-3x fewer image tokens
+            # per step AND more accurate than full-res. Raise it only if text is unreadable.
+            display_max=int(os.getenv("SHADOW_DISPLAY_MAX", "1280")),
             # Native engine: keep only the most recent N screenshots in context.
             keep_images=int(os.getenv("SHADOW_KEEP_IMAGES", "4")),
             # Wheel clicks per unit of the model's scroll_amount. Lower = gentler scrolling.
             scroll_scale=int(os.getenv("SHADOW_SCROLL_SCALE", "5")),
-            gen_model=os.getenv("SHADOW_GEN_MODEL", "claude-opus-4-8").strip(),
+            # Sonnet 4.6 is the speed/accuracy sweet spot for the computer-use loop
+            # (~2x faster/cheaper than Opus, supports vision + effort). Set
+            # SHADOW_GEN_MODEL=claude-opus-4-8 for the hardest multi-step tasks.
+            gen_model=os.getenv("SHADOW_GEN_MODEL", "claude-sonnet-4-6").strip(),
+            # The conversational turn (Sunny's spoken replies + task routing) wants speed
+            # over raw capability — Sonnet keeps the back-and-forth snappy.
+            chat_model=os.getenv("SHADOW_CHAT_MODEL", "claude-sonnet-4-6").strip(),
             ground_model=os.getenv("SHADOW_GROUND_MODEL", "bytedance/ui-tars-1.5-7b").strip(),
             # Hard cap on agent loop iterations (runaway/cost guard).
             max_steps=int(os.getenv("SHADOW_MAX_TRAJECTORY", "15")),

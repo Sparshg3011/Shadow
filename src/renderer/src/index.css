@@ -1,11 +1,17 @@
 :root {
-  --text: #1c2444;
-  --muted: #5a6488;
-  --accent: #6aa6ff;
-  --accent-2: #56e08b;
-  --stop: #ff6b6b;
-  --panel: rgba(255, 255, 255, 0.9);
-  --border: rgba(120, 140, 200, 0.25);
+  --text: #1b2138;
+  --muted: #515b80; /* 5.4:1 on white — WCAG AA */
+  --accent: #2563eb; /* 5.2:1 on white as text, and white text on it passes AA */
+  --accent-soft: #e8f0ff;
+  --accent-2: #1f9d57; /* green for UI accents (icons/dots) */
+  --accent-2-strong: #15803d; /* darker green for white-on-green labels (AA) */
+  --stop: #d8392e;
+  --user-bubble: #2563eb;
+  --assistant-bubble: #eef1f8;
+  --panel: rgba(255, 255, 255, 0.97);
+  --panel-border: rgba(120, 140, 200, 0.22);
+  --shadow: 0 12px 34px rgba(20, 28, 56, 0.22);
+  --radius: 18px;
 }
 
 * {
@@ -20,10 +26,10 @@ body,
 }
 
 body {
-  /* Transparent so only Sunny + the cloud show over the desktop. */
+  /* Transparent so the avatar floats over the desktop; the chat panel is opaque. */
   background: transparent;
   color: var(--text);
-  font: 15px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font: 16px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
   user-select: none;
   overflow: hidden;
@@ -34,6 +40,484 @@ body {
   height: 100%;
   display: flex;
   flex-direction: column;
+  padding: 6px 8px 10px;
+  gap: 6px;
+}
+/* Collapsed = just the floating avatar, centred; the chat panel isn't rendered. */
+.app.collapsed {
+  justify-content: center;
+  padding: 0;
+}
+
+/* ---- Header: floating avatar + live status ---- */
+.header {
+  position: relative;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 6px;
+}
+
+/* The avatar is the click/drag target: tap toggles the chat, drag moves the window. */
+.avatar-hit {
+  -webkit-app-region: no-drag;
+  display: inline-flex;
+  cursor: pointer;
+  touch-action: none; /* let pointermove drive our custom drag */
+  transition: transform 0.12s ease;
+}
+.avatar-hit:hover {
+  transform: translateY(-1px) scale(1.02);
+}
+.avatar-hit:active {
+  transform: scale(0.98);
+}
+
+.sunny {
+  width: auto;
+  height: 132px;
+  max-width: 100%;
+  display: block;
+  overflow: visible;
+  pointer-events: none; /* clicks/drags belong to .avatar-hit */
+  filter: drop-shadow(0 8px 16px rgba(20, 28, 56, 0.22));
+}
+
+.sunny .feature {
+  fill: #87e5ff;
+}
+.sunny .feature-stroke {
+  stroke: #87e5ff;
+  stroke-width: 6;
+  stroke-linecap: round;
+  fill: none;
+}
+.sunny .orb-core,
+.sunny .chest {
+  fill: var(--orb, #7fd4ff);
+}
+.sunny .orb-glow {
+  fill: var(--orb, #7fd4ff);
+  opacity: var(--pulse, 0.7);
+}
+
+/* Live caption under the avatar (listening partial / speaking / working). */
+.status-pill {
+  margin-top: 2px;
+  max-width: 88%;
+  padding: 4px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(20, 28, 56, 0.16);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  -webkit-app-region: no-drag;
+}
+.status-pill.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.ghost-btn {
+  -webkit-app-region: no-drag;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 8px;
+}
+.ghost-btn:hover {
+  background: rgba(120, 140, 200, 0.12);
+  color: var(--text);
+}
+.new-chat {
+  position: absolute;
+  top: 4px;
+  right: 2px;
+}
+
+/* ---- Opaque panel: the readable surface (dial + chat + composer) ---- */
+.panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+  -webkit-app-region: no-drag;
+}
+
+/* ---- Help dial ("How much help?") ---- */
+.help-dial {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: none;
+}
+.help-dial-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+.help-dial-options {
+  display: flex;
+  gap: 6px;
+}
+.help-opt {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 6px;
+  min-height: 44px;
+  text-align: center;
+  color: var(--muted);
+  background: rgba(120, 140, 200, 0.08);
+  border: 2px solid transparent;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.help-opt:hover {
+  background: rgba(120, 140, 200, 0.14);
+}
+.help-opt.active {
+  color: var(--text);
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.help-opt-label {
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+.help-opt-hint {
+  font-size: 10.5px;
+  line-height: 1.2;
+  opacity: 0.9;
+}
+
+/* ---- Chat transcript ---- */
+.chat {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 2px;
+  scroll-behavior: smooth;
+}
+.chat-empty {
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 16px;
+  gap: 6px;
+}
+.chat-hello {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 700;
+}
+.chat-sub {
+  margin: 0;
+  font-size: 14.5px;
+  color: var(--muted);
+  max-width: 280px;
+  line-height: 1.5;
+}
+
+.msg {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 100%;
+}
+.msg-user {
+  align-items: flex-end;
+}
+.msg-assistant {
+  align-items: flex-start;
+}
+
+.bubble {
+  max-width: 86%;
+  padding: 10px 14px;
+  font-size: 15.5px;
+  line-height: 1.45;
+  border-radius: 16px;
+  overflow-wrap: break-word;
+}
+.bubble-user {
+  color: #fff;
+  background: var(--user-bubble);
+  border-bottom-right-radius: 5px;
+}
+.bubble-assistant {
+  color: var(--text);
+  background: var(--assistant-bubble);
+  border-bottom-left-radius: 5px;
+}
+
+/* Typing indicator */
+.typing {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  height: 12px;
+}
+.typing i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--muted);
+  animation: typing 1.2s ease-in-out infinite;
+}
+.typing i:nth-child(2) {
+  animation-delay: 0.18s;
+}
+.typing i:nth-child(3) {
+  animation-delay: 0.36s;
+}
+@keyframes typing {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+
+/* ---- Task card (live + result), nested under an assistant bubble ---- */
+.task-card {
+  width: 100%;
+  max-width: 92%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  background: rgba(120, 140, 200, 0.07);
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+}
+.task-error .task-card,
+.task-card.task-error {
+  background: rgba(224, 72, 61, 0.08);
+}
+
+.control-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0d7a44;
+  padding: 7px 11px;
+  background: rgba(31, 157, 87, 0.12);
+  border-radius: 10px;
+}
+.control-banner .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-2);
+  animation: pulse 1s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.step {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  padding: 5px 9px;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 8px;
+}
+.step.muted {
+  color: var(--muted);
+  font-style: italic;
+}
+.step-n {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.step-action {
+  color: var(--accent);
+  font-weight: 700;
+}
+.step-detail {
+  flex: 1;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.task-shot {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid var(--panel-border);
+}
+
+.verdict {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.verdict-tag {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+.verdict-approved .verdict-tag {
+  color: #fff;
+  background: var(--accent-2-strong);
+}
+.verdict-rejected .verdict-tag {
+  color: #fff;
+  background: var(--stop);
+}
+.verdict-reason {
+  font-size: 13px;
+  color: var(--muted);
+  flex: 1;
+}
+.task-error {
+  font-size: 13.5px;
+  color: #b3382e;
+}
+
+.voice-error {
+  flex: none;
+  font-size: 13px;
+  color: #b3382e;
+  background: rgba(224, 72, 61, 0.1);
+  border-radius: 10px;
+  padding: 8px 12px;
+}
+
+/* ---- Composer: talk, type, send ---- */
+.composer {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.composer-field {
+  flex: 1;
+  min-width: 0;
+  height: 48px;
+  padding: 0 16px;
+  font-size: 16px;
+  color: var(--text);
+  background: #fff;
+  border: 1.5px solid var(--panel-border);
+  border-radius: 24px;
+  outline: none;
+  -webkit-app-region: no-drag;
+}
+.composer-field:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.22);
+}
+.composer-field::placeholder {
+  color: #9aa3c0;
+}
+
+.btn {
+  flex: none;
+  height: 48px;
+  min-width: 48px;
+  display: grid;
+  place-items: center;
+  padding: 0 16px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  border: none;
+  border-radius: 24px;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+.btn-send {
+  background: var(--accent);
+  padding: 0;
+}
+.btn-send:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.btn-stop {
+  background: var(--stop);
+}
+
+/* ---- Mic button (inline in the composer) ---- */
+.voice-btn {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(20, 28, 56, 0.22);
+  transition: background 0.2s ease, transform 0.12s ease;
+  -webkit-app-region: no-drag;
+}
+.voice-btn:not(.on) {
+  background: #8893b5; /* "off" — muted but clearly a mic */
+}
+.voice-btn:active {
+  transform: scale(0.94);
+}
+.voice-btn.on {
+  background: var(--accent-2);
+}
+.voice-btn.listening {
+  animation: mic-pulse 1.4s ease-in-out infinite;
+}
+.voice-btn.speaking {
+  background: var(--accent);
+  animation: none;
+}
+@keyframes mic-pulse {
+  0%, 100% {
+    box-shadow: 0 6px 16px rgba(20, 28, 56, 0.22), 0 0 0 0 rgba(31, 157, 87, 0.5);
+  }
+  50% {
+    box-shadow: 0 6px 16px rgba(20, 28, 56, 0.22), 0 0 0 10px rgba(31, 157, 87, 0);
+  }
 }
 
 /* ---- Dev emotion gallery (/?gallery) ---- */
@@ -65,373 +549,14 @@ body {
   text-transform: capitalize;
 }
 
-/* ---- Sunny + speech cloud ---- */
-/* Avatar zone: flexes to fill leftover space; shrinks (never overlaps) when the
-   dock opens. The robot scales down to fit via max-height on .sunny. */
-.sunny-stage {
-  position: relative;
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 10px;
-}
-
-.drag-region {
-  position: absolute;
-  inset: 0;
-  -webkit-app-region: drag;
-}
-
-.sunny {
-  width: auto;
-  height: 300px;
-  max-height: 100%; /* scale down to fit when the dock opens — no overlap */
-  max-width: 100%;
-  display: block;
-  overflow: visible;
-  -webkit-app-region: drag;
-}
-
-.sunny .feature {
-  fill: #87e5ff;
-}
-.sunny .feature-stroke {
-  stroke: #87e5ff;
-  stroke-width: 6;
-  stroke-linecap: round;
-  fill: none;
-}
-.sunny .orb-core,
-.sunny .chest {
-  fill: var(--orb, #7fd4ff);
-}
-.sunny .orb-glow {
-  fill: var(--orb, #7fd4ff);
-  opacity: var(--pulse, 0.7);
-}
-
-/* Speech cloud — puffy, sits above the head, large readable captions. */
-.cloud {
-  position: relative;
-  max-width: 300px;
-  margin-bottom: 4px;
-  z-index: 3;
-  animation: cloud-in 0.32s ease;
-  -webkit-app-region: no-drag;
-}
-
-.cloud-body {
-  background: #ffffff;
-  color: var(--text);
-  font-size: 18px;
-  line-height: 1.4;
-  padding: 14px 18px;
-  border-radius: 22px;
-  box-shadow: 0 10px 30px rgba(28, 36, 68, 0.22);
-  /* Long captions are bounded in SpeechCloud (JS), so the bubble stays clear of
-     the avatar/mic. max-height is just insurance; break-word handles long URLs. */
-  max-height: 220px;
-  overflow: hidden;
-  overflow-wrap: break-word;
-}
-
-.cloud-tail {
-  position: absolute;
-  left: 50%;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 4px 10px rgba(28, 36, 68, 0.18);
-}
-.cloud-tail.tail-1 {
-  width: 18px;
-  height: 18px;
-  bottom: -16px;
-  transform: translateX(-26px);
-}
-.cloud-tail.tail-2 {
-  width: 11px;
-  height: 11px;
-  bottom: -30px;
-  transform: translateX(-14px);
-}
-
-@keyframes cloud-in {
-  from { opacity: 0; transform: translateY(8px) scale(0.96); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-/* ---- Floating mic button (always visible; primary entry to voice) ---- */
-.voice-btn {
-  flex: none;
-  align-self: center;
-  margin: 8px 0 16px;
-  width: 56px;
-  height: 56px;
-  display: grid;
-  place-items: center;
-  color: #fff;
-  background: var(--accent);
-  border: 3px solid rgba(255, 255, 255, 0.85);
-  border-radius: 50%;
-  cursor: pointer;
-  box-shadow: 0 10px 24px rgba(28, 36, 68, 0.28);
-  transition: background 0.2s ease, transform 0.12s ease;
-  z-index: 4;
-  -webkit-app-region: no-drag;
-}
-.voice-btn:active {
-  transform: scale(0.94);
-}
-.voice-btn.on {
-  background: var(--accent-2);
-}
-.voice-btn.listening {
-  animation: mic-pulse 1.4s ease-in-out infinite;
-}
-.voice-btn.speaking {
-  background: var(--accent);
-  animation: none;
-}
-@keyframes mic-pulse {
-  0%,
-  100% {
-    box-shadow: 0 10px 24px rgba(28, 36, 68, 0.28), 0 0 0 0 rgba(86, 224, 139, 0.5);
+/* ---- Respect reduced motion ---- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
-  50% {
-    box-shadow: 0 10px 24px rgba(28, 36, 68, 0.28), 0 0 0 12px rgba(86, 224, 139, 0);
-  }
-}
-
-/* ---- Control dock (reveals on hover; voice is the primary path) ---- */
-.dock {
-  flex: none;
-  margin: 0 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  box-shadow: 0 12px 30px rgba(28, 36, 68, 0.18);
-  backdrop-filter: blur(8px);
-  /* Collapsed by default; expands on hover. In-flow so it shrinks the avatar
-     band instead of overlapping it. */
-  max-height: 0;
-  padding: 0 10px;
-  opacity: 0;
-  overflow: hidden;
-  transition: max-height 0.25s ease, padding 0.25s ease, opacity 0.2s ease;
-  pointer-events: none;
-  -webkit-app-region: no-drag;
-}
-.app:hover .dock,
-.dock:focus-within {
-  max-height: 62vh;
-  padding: 10px;
-  opacity: 1;
-  pointer-events: auto;
-}
-
-/* ---- Help dial ("How much help?") ---- */
-.help-dial {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.help-dial-title {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--muted);
-  padding-left: 2px;
-}
-.help-dial-options {
-  display: flex;
-  gap: 6px;
-}
-.help-opt {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 8px 6px;
-  text-align: center;
-  color: var(--muted);
-  background: rgba(120, 140, 200, 0.08);
-  border: 1.5px solid transparent;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
-}
-.help-opt:hover {
-  background: rgba(120, 140, 200, 0.14);
-}
-.help-opt.active {
-  color: var(--text);
-  background: rgba(106, 166, 255, 0.14);
-  border-color: var(--accent);
-}
-.help-opt-label {
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.15;
-}
-.help-opt-hint {
-  font-size: 10px;
-  line-height: 1.15;
-  opacity: 0.85;
-}
-
-/* ---- Activity ---- */
-.control-banner {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: #0b7f4f;
-  padding: 8px 12px;
-  background: rgba(86, 224, 139, 0.12);
-  border: 1px solid rgba(86, 224, 139, 0.3);
-  border-radius: 10px;
-}
-.control-banner .dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--accent-2);
-  animation: pulse 1s ease-in-out infinite;
-}
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
-}
-
-.current-task {
-  font-size: 13px;
-  padding: 2px 4px;
-}
-
-.steps {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-height: 30vh;
-  overflow-y: auto;
-}
-.step {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  font-size: 13px;
-  padding: 6px 10px;
-  background: rgba(120, 140, 200, 0.08);
-  border-radius: 8px;
-}
-.step.muted {
-  color: var(--muted);
-  font-style: italic;
-}
-.step-n {
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-}
-.step-action {
-  color: var(--accent);
-  font-weight: 600;
-}
-.step-detail {
-  flex: 1;
-  color: var(--muted);
-  line-height: 1.4;
-}
-
-.result {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px;
-  background: rgba(120, 140, 200, 0.08);
-  border-radius: 12px;
-}
-.result.error {
-  background: rgba(255, 107, 107, 0.1);
-}
-.verdict {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.verdict-tag {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  padding: 3px 9px;
-  border-radius: 999px;
-}
-.verdict-approved .verdict-tag {
-  color: #0f1117;
-  background: var(--accent-2);
-}
-.verdict-rejected .verdict-tag {
-  color: #fff;
-  background: var(--stop);
-}
-.verdict-reason {
-  font-size: 12px;
-  color: var(--muted);
-  flex: 1;
-}
-.result-summary {
-  font-size: 14px;
-}
-.result-shot {
-  width: 100%;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-}
-
-/* ---- Input ---- */
-.input-bar {
-  display: flex;
-  gap: 8px;
-}
-.input-field {
-  flex: 1;
-  padding: 11px 14px;
-  font-size: 15px;
-  color: var(--text);
-  background: #fff;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  outline: none;
-}
-.input-field:focus {
-  border-color: var(--accent);
-}
-.btn {
-  padding: 11px 18px;
-  font-size: 15px;
-  font-weight: 600;
-  color: #fff;
-  border: none;
-  border-radius: 12px;
-  cursor: pointer;
-}
-.btn-run {
-  background: var(--accent);
-}
-.btn-run:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-.btn-stop {
-  background: var(--stop);
 }

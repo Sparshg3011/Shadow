@@ -42,12 +42,17 @@ class Sidecar:
         self._cancel = threading.Event()
         self._runner = None  # built lazily on first task
         self._current_id = None
+        self._cfg = None  # loaded once in loop()
+        self._send_lock = threading.Lock()  # worker + converse threads share stdout
         self._results: dict = {}   # task_id -> terminal event (sync callers only)
         self._events: dict = {}    # task_id -> threading.Event (sync callers only)
 
     def send(self, event: dict):
-        _OUT.write(json.dumps(event) + "\n")
-        _OUT.flush()
+        # Serialize writes: a converse reply can race a running task's events.
+        line = json.dumps(event) + "\n"
+        with self._send_lock:
+            _OUT.write(line)
+            _OUT.flush()
 
     def enqueue(self, instruction: str, source: str, mode: str = "hands-on") -> str:
         task_id = str(uuid.uuid4())
@@ -88,9 +93,24 @@ class Sidecar:
             self._queue.put((task_id, cmd.get("instruction", ""), cmd.get("mode", "hands-on")))
             self.send({"type": "queued", "id": task_id,
                        "instruction": cmd.get("instruction", ""), "source": "ui"})
+        elif ctype == "converse":
+            # Fast conversational turn: reply + decide task vs. chat. Off the main
+            # queue and on its own thread so it never waits behind a running task.
+            cid = cmd.get("id") or str(uuid.uuid4())
+            threading.Thread(target=self._converse, daemon=True,
+                             args=(cid, cmd.get("text", ""), cmd.get("mode", "hands-on"))).start()
         elif ctype == "cancel":
             self._drain()
             self._cancel.set()
+
+    def _converse(self, cid: str, text: str, mode: str):
+        from converse import converse
+        cfg = self._cfg or Config.load()
+        try:
+            result = converse(cfg.anthropic_api_key, cfg.chat_model, text, mode)
+        except Exception as exc:  # converse() already fails safe, but guard the thread
+            result = {"intent": "task", "say": "On it.", "task": text, "error": str(exc)}
+        self.send({"type": "reply", "id": cid, **result})
 
     def _drain(self):
         """Discard pending tasks (used on cancel)."""
@@ -128,6 +148,7 @@ class Sidecar:
 
     def loop(self):
         cfg = Config.load()
+        self._cfg = cfg
         threading.Thread(target=self._worker, daemon=True).start()
         start_http(self.enqueue, self.run_sync, cfg)
         self.send({"type": "ready"})

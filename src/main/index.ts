@@ -10,6 +10,30 @@ import { readFileSync } from 'fs'
 let win: BrowserWindow | null = null
 let sidecar: ChildProcessWithoutNullStreams | null = null
 
+// Window footprint in each state. Collapsed = avatar only; expanded = full chat.
+const COLLAPSED = { width: 210, height: 240 }
+const EXPANDED = { width: 400, height: 680 }
+// Anchor point captured at the start of an avatar drag, so window moves are drift-free.
+let dragAnchor: { winX: number; winY: number; cursorX: number; cursorY: number } | null = null
+
+/** Pending converse() calls, keyed by request id, resolved when the sidecar replies. */
+type ConverseReply = { intent: 'task' | 'chat'; say: string; task: string }
+const pendingConverse = new Map<string, (reply: ConverseReply) => void>()
+
+/** Guard the sidecar's reply shape before trusting it (a malformed one falls through
+ *  to the converse() timeout fallback rather than corrupting renderer state). */
+function isConverseReply(ev: {
+  intent?: unknown
+  say?: unknown
+  task?: unknown
+}): ev is ConverseReply {
+  return (
+    (ev.intent === 'task' || ev.intent === 'chat') &&
+    typeof ev.say === 'string' &&
+    typeof ev.task === 'string'
+  )
+}
+
 /** Load .env into process.env (the sidecar parses it itself; main needs the Deepgram key). */
 function loadEnv() {
   for (const base of [app.getAppPath(), process.cwd()]) {
@@ -44,15 +68,30 @@ function startSidecar() {
     env: { ...process.env, PYTHONUNBUFFERED: '1' }
   })
 
-  // Each stdout line is one JSON event — forward it to the renderer.
+  // Each stdout line is one JSON event. `reply` events answer a pending converse()
+  // call (request/response); everything else streams to the renderer.
   createInterface({ input: sidecar.stdout }).on('line', (raw) => {
     const line = raw.trim()
     if (!line) return
+    let ev: { type?: string; id?: string; intent?: unknown; say?: unknown; task?: unknown }
     try {
-      win?.webContents.send('agent:event', JSON.parse(line))
+      ev = JSON.parse(line)
     } catch {
-      // stdout is JSON-only by contract; ignore anything else.
+      console.error('[sidecar] non-JSON stdout:', line)
+      return // stdout is JSON-only by contract; ignore anything else.
     }
+    if (ev.type === 'reply') {
+      // Answer the matching converse() call — or drop the reply (a late arrival
+      // after timeout, or one for an unknown id). Never forward it to the renderer.
+      const replyId = ev.id
+      const resolve = replyId ? pendingConverse.get(replyId) : undefined
+      if (resolve && isConverseReply(ev)) {
+        resolve({ intent: ev.intent, say: ev.say, task: ev.task })
+      }
+      if (replyId) pendingConverse.delete(replyId)
+      return
+    }
+    win?.webContents.send('agent:event', ev)
   })
 
   sidecar.stderr.on('data', (d) => console.error('[sidecar]', d.toString().trimEnd()))
@@ -72,8 +111,12 @@ function sendToSidecar(cmd: object) {
 
 function createWindow() {
   win = new BrowserWindow({
-    width: 360,
-    height: 600,
+    // Start collapsed: just the floating avatar. The chat panel (and the larger
+    // window) appears when the user clicks Sunny — see window:setExpanded.
+    width: COLLAPSED.width,
+    height: COLLAPSED.height,
+    minWidth: 200,
+    minHeight: 220,
     show: false,
     resizable: true,
     movable: true,
@@ -112,6 +155,24 @@ app.whenReady().then(() => {
     sendToSidecar({ type: 'run_task', id, instruction, mode })
     return id
   })
+
+  // Conversational turn: ask the sidecar for Sunny's reply + task routing, and
+  // resolve when the matching `reply` event comes back (or fail safe on timeout).
+  ipcMain.handle('agent:converse', (_e, text: string, mode = 'hands-on'): Promise<ConverseReply> => {
+    const id = randomUUID()
+    return new Promise<ConverseReply>((resolve) => {
+      const timer = setTimeout(() => {
+        pendingConverse.delete(id)
+        resolve({ intent: 'task', say: 'On it.', task: text })
+      }, 20000)
+      pendingConverse.set(id, (reply) => {
+        clearTimeout(timer)
+        resolve(reply)
+      })
+      sendToSidecar({ type: 'converse', id, text, mode })
+    })
+  })
+
   ipcMain.on('agent:cancel', (_e, id: string) => sendToSidecar({ type: 'cancel', id }))
 
   // Mint a short-lived Deepgram token for the renderer's voice layer. Tries an
@@ -131,6 +192,40 @@ app.whenReady().then(() => {
   // Let the renderer pass clicks through transparent areas to the desktop.
   ipcMain.on('window:setIgnoreMouseEvents', (_e, ignore: boolean, opts?: { forward?: boolean }) => {
     win?.setIgnoreMouseEvents(ignore, opts)
+  })
+
+  // Grow/shrink the window when the chat opens/closes, keeping the avatar (top
+  // centre) anchored in place so it doesn't jump on screen.
+  ipcMain.on('window:setExpanded', (_e, expanded: boolean) => {
+    if (!win) return
+    const size = expanded ? EXPANDED : COLLAPSED
+    const b = win.getBounds()
+    const centreX = b.x + b.width / 2
+    win.setBounds({
+      x: Math.round(centreX - size.width / 2),
+      y: b.y,
+      width: size.width,
+      height: size.height
+    })
+  })
+
+  // Custom window dragging from the avatar (it can't use -webkit-app-region:drag
+  // because we also need its click to toggle the chat). Drift-free: move relative
+  // to where the drag began.
+  ipcMain.on('window:dragStart', (_e, cursorX: number, cursorY: number) => {
+    if (!win) return
+    const [winX, winY] = win.getPosition()
+    dragAnchor = { winX, winY, cursorX, cursorY }
+  })
+  ipcMain.on('window:dragMove', (_e, cursorX: number, cursorY: number) => {
+    if (!win || !dragAnchor) return
+    win.setPosition(
+      Math.round(dragAnchor.winX + (cursorX - dragAnchor.cursorX)),
+      Math.round(dragAnchor.winY + (cursorY - dragAnchor.cursorY))
+    )
+  })
+  ipcMain.on('window:dragEnd', () => {
+    dragAnchor = null
   })
 
   startSidecar()
