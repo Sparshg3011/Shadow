@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Icon } from './Icon'
 import {
   classify,
   clearIntents,
@@ -37,35 +38,12 @@ function nfmt(n: number): string {
   return String(n)
 }
 
-// A turned-brass bolt seated in a steel race — the recurring Deadbolt motif.
-function BoltGlyph({ size = 18, locked = false }: { size?: number; locked?: boolean }) {
-  const color = locked ? 'var(--oxide)' : 'var(--brass)'
-  const x = locked ? 10 : 3
-  return (
-    <svg width={size} height={(size * 14) / 24} viewBox="0 0 24 14" fill="none" aria-hidden="true">
-      <rect x="0.5" y="3.5" width="23" height="7" rx="3.5" fill="var(--bg-soft)" stroke="var(--border)" />
-      <rect x={x} y="5" width="11" height="4" rx="2" fill={color} />
-      <rect x="20" y="4.5" width="3" height="5" rx="1" fill="var(--border)" />
-    </svg>
-  )
-}
-
 export default function App() {
   const [health, setHealth] = useState<Health | null>(null)
   const [healthy, setHealthy] = useState(false)
   const [agents, setAgents] = useState<AgentsResponse | null>(null)
   const [intents, setIntents] = useState<IntentsResponse | null>(null)
   const [space, setSpace] = useState<SpaceResponse | null>(null)
-  const [thrown, setThrown] = useState(false)
-  const prevOk = useRef(0)
-  const throwTimer = useRef<number | undefined>(undefined)
-
-  // Fire the bolt: it throws to LOCKED, then eases back as the queue drains.
-  const triggerThrow = useCallback(() => {
-    setThrown(true)
-    window.clearTimeout(throwTimer.current)
-    throwTimer.current = window.setTimeout(() => setThrown(false), 1400)
-  }, [])
 
   const refetchSpace = useCallback(async () => {
     try {
@@ -75,7 +53,6 @@ export default function App() {
     }
   }, [])
 
-  // Poll health + routes + intent feed + space.
   useEffect(() => {
     let alive = true
     const tick = async () => {
@@ -93,9 +70,6 @@ export default function App() {
         setAgents(a)
         setIntents(i)
         setSpace(s)
-        // A real intent clearing the gate throws the bolt (never on raw cadence).
-        if (i.stats.ok > prevOk.current && prevOk.current !== 0) triggerThrow()
-        prevOk.current = i.stats.ok
       } catch {
         /* keep last good state */
       }
@@ -106,44 +80,27 @@ export default function App() {
       alive = false
       clearInterval(id)
     }
-  }, [triggerThrow])
+  }, [])
 
   const stats = intents?.stats ?? { total: 0, ok: 0, awaiting: 0, routing: 0, failed: 0 }
   const spaceAddrs = new Set((space?.agents ?? []).map((a) => a.address))
-  const inFlight = stats.routing + stats.awaiting
 
   return (
     <div className="app">
       <Header health={health} healthy={healthy} />
 
-      <BoltBar thrown={thrown} inFlight={inFlight} />
-
       <div className="stats">
-        <div className="stat">
-          <div className="n">{space?.count ?? 0}</div>
-          <div className="k">Seated</div>
-        </div>
-        <div className="stat route">
-          <div className="n">{stats.routing}</div>
-          <div className="k">In flight</div>
-        </div>
-        <div className="stat ok">
-          <div className="n">{stats.ok}</div>
-          <div className="k">Cleared</div>
-        </div>
-        <div className="stat fail">
-          <div className="n">
-            <BoltGlyph size={16} locked /> {stats.failed}
-          </div>
-          <div className="k">Held</div>
-        </div>
+        <Stat cls="lead" n={space?.count ?? 0} k="In your space" />
+        <Stat cls="route" n={stats.routing} k="In flight" />
+        <Stat cls="ok" n={stats.ok} k="Completed" />
+        <Stat cls="fail" n={stats.failed} k="Gated" />
       </div>
 
       <div className="grid">
-        <div>
-          <MarketplacePanel spaceAddrs={spaceAddrs} onChanged={refetchSpace} onThrow={triggerThrow} />
+        <div className="col">
+          <MarketplacePanel spaceAddrs={spaceAddrs} onChanged={refetchSpace} />
         </div>
-        <div>
+        <div className="col">
           <SpacePanel space={space} onChanged={refetchSpace} />
           <RoutesPanel agents={agents} />
           <IntentsPanel intents={intents} />
@@ -153,16 +110,11 @@ export default function App() {
   )
 }
 
-function BoltBar({ thrown, inFlight }: { thrown: boolean; inFlight: number }) {
+function Stat({ cls, n, k }: { cls: string; n: number; k: string }) {
   return (
-    <div className="boltbar" data-thrown={thrown} aria-label={thrown ? 'gate locked — intent cleared' : 'gate open'}>
-      <span className="boltbar-label left">Unlocked</span>
-      <div className="bolt-race" style={{ '--throw': thrown ? 'calc(100% - 128px)' : '0px' } as CSSProperties}>
-        <div className="bolt" />
-        <div className="bolt-keeper" />
-      </div>
-      <span className="boltbar-label right">Locked</span>
-      <span className="boltbar-count mono">{inFlight} in flight</span>
+    <div className={`stat ${cls}`}>
+      <div className="n">{n}</div>
+      <div className="k">{k}</div>
     </div>
   )
 }
@@ -172,7 +124,7 @@ function Header({ health, healthy }: { health: Health | null; healthy: boolean }
     <div className="header">
       <div className="brand">
         <div className="brand-mark">
-          <BoltGlyph size={26} />
+          <Icon name="lock" size={23} />
         </div>
         <div>
           <h1>Deadbolt</h1>
@@ -192,14 +144,26 @@ function Header({ health, healthy }: { health: Health | null; healthy: boolean }
   )
 }
 
+function PanelHead({ icon, title, meta }: { icon: 'globe' | 'shield' | 'branch' | 'activity'; title: string; meta?: React.ReactNode }) {
+  return (
+    <div className="panel-head">
+      <h2>
+        <span className="ico-tile">
+          <Icon name={icon} size={16} />
+        </span>
+        {title}
+      </h2>
+      {meta != null && <span className="meta">{meta}</span>}
+    </div>
+  )
+}
+
 function MarketplacePanel({
   spaceAddrs,
   onChanged,
-  onThrow,
 }: {
   spaceAddrs: Set<string>
   onChanged: () => void
-  onThrow: () => void
 }) {
   const [query, setQuery] = useState('groceries')
   const [input, setInput] = useState('groceries')
@@ -228,12 +192,7 @@ function MarketplacePanel({
 
   return (
     <div className="panel">
-      <div className="panel-head">
-        <h2>
-          <span className="ico">🛰️</span> Fetch.ai Marketplace
-        </h2>
-        <span className="meta">{loading ? 'searching…' : `${data?.num_hits ?? 0} live agents`}</span>
-      </div>
+      <PanelHead icon="globe" title="Marketplace" meta={loading ? 'searching…' : `${data?.num_hits ?? 0} live agents`} />
       <div className="panel-body">
         <form
           className="search"
@@ -246,6 +205,7 @@ function MarketplacePanel({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Search Agentverse — groceries, payments, travel…"
+            aria-label="Search the marketplace"
           />
           <button type="submit">Search</button>
         </form>
@@ -264,19 +224,13 @@ function MarketplacePanel({
           ))}
         </div>
 
-        {data?.error && <div className="err">Marketplace error: {data.error}</div>}
+        {data?.error && <div className="err">Couldn’t reach the marketplace: {data.error}</div>}
 
         <div className="mk-list">
           {loading && !data
             ? Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
             : data?.agents.map((a) => (
-                <MarketCard
-                  key={a.address}
-                  a={a}
-                  inSpace={spaceAddrs.has(a.address)}
-                  onChanged={onChanged}
-                  onThrow={onThrow}
-                />
+                <MarketCard key={a.address} a={a} inSpace={spaceAddrs.has(a.address)} onChanged={onChanged} />
               ))}
         </div>
         {!loading && data && data.agents.length === 0 && (
@@ -284,9 +238,12 @@ function MarketplacePanel({
         )}
 
         <div className="gate-note">
-          Every agent here is <b>discoverable but untrusted</b> — usable as a
-          planner the moment it appears, never granted execution. Irreversible
-          actions still stop at the bolt.
+          <span className="ico"><Icon name="shield" size={16} /></span>
+          <span>
+            Every agent here is <b>discoverable but untrusted</b> — usable as a planner the
+            moment it appears, never granted execution. Irreversible actions still require
+            your approval.
+          </span>
         </div>
       </div>
     </div>
@@ -299,25 +256,25 @@ function SkeletonCard() {
       <div className="skel ava" />
       <div className="mk-main">
         <div className="skel line" style={{ width: '55%' }} />
-        <div className="skel line" style={{ width: '90%', marginTop: 8 }} />
-        <div className="skel line" style={{ width: '40%', marginTop: 8 }} />
+        <div className="skel line" style={{ width: '90%', marginTop: 9 }} />
+        <div className="skel line" style={{ width: '40%', marginTop: 9 }} />
       </div>
     </div>
   )
 }
 
-function MarketCard({
-  a,
-  inSpace,
-  onChanged,
-  onThrow,
-}: {
-  a: MarketplaceAgent
-  inSpace: boolean
-  onChanged: () => void
-  onThrow: () => void
-}) {
-  const [imgOk, setImgOk] = useState(true)
+function Avatar({ src, flaky }: { src?: string; flaky?: boolean }) {
+  const [ok, setOk] = useState(true)
+  return src && ok ? (
+    <img className={`mk-ava ${flaky ? 'flaky' : ''}`} src={src} alt="" onError={() => setOk(false)} />
+  ) : (
+    <div className={`mk-ava ${flaky ? 'flaky' : ''}`}>
+      <Icon name="chip" size={18} />
+    </div>
+  )
+}
+
+function MarketCard({ a, inSpace, onChanged }: { a: MarketplaceAgent; inSpace: boolean; onChanged: () => void }) {
   const [busy, setBusy] = useState(false)
   const flaky = a.unresponsive || (!!a.status && a.status !== 'active')
 
@@ -325,7 +282,6 @@ function MarketCard({
     setBusy(true)
     try {
       await registerAgent(a)
-      onThrow() // an agent crosses the gate into your space
       onChanged()
     } finally {
       setBusy(false)
@@ -334,67 +290,46 @@ function MarketCard({
 
   return (
     <div className={`mk-card ${inSpace ? 'in-space' : ''}`}>
-      {a.avatar && imgOk ? (
-        <img className={`mk-ava ${flaky ? 'flaky' : ''}`} src={a.avatar} alt="" onError={() => setImgOk(false)} />
-      ) : (
-        <div className={`mk-ava ${flaky ? 'flaky' : ''}`}>🤖</div>
-      )}
+      <Avatar src={a.avatar} flaky={flaky} />
       <div className="mk-main">
         <div className="mk-top">
-          <span className="mk-name" title={a.name}>
-            {a.name}
-          </span>
-          {a.featured && <span className="tag featured">★ featured</span>}
+          <span className="mk-name" title={a.name}>{a.name}</span>
+          {a.featured && (
+            <span className="tag featured"><Icon name="star" size={11} /> featured</span>
+          )}
           {a.category && !a.featured && <span className="tag">{a.category}</span>}
         </div>
         {a.description && <div className="mk-desc">{a.description}</div>}
         <div className="mk-foot">
-          <span title="total interactions">⚡ {nfmt(a.interactions)}</span>
-          {a.rating != null && <span>★ {a.rating.toFixed(1)}</span>}
-          <span className="mk-addr" title={a.address}>
-            {shortAddr(a.address)}
-          </span>
+          <span className="meta-item" title="total interactions"><Icon name="zap" size={13} /> {nfmt(a.interactions)}</span>
+          {a.rating != null && <span className="meta-item"><Icon name="star" size={13} /> {a.rating.toFixed(1)}</span>}
+          <span className="mk-addr" title={a.address}>{shortAddr(a.address)}</span>
           {a.marketplace_url && (
-            <a href={a.marketplace_url} target="_blank" rel="noreferrer">
-              view ↗
-            </a>
+            <a href={a.marketplace_url} target="_blank" rel="noreferrer">View <Icon name="arrowUpRight" size={13} /></a>
           )}
         </div>
       </div>
       {inSpace ? (
-        <span className="add-btn added" title="In your space">
-          <BoltGlyph size={13} /> Added
-        </span>
+        <span className="add-btn added" title="In your space"><Icon name="check" size={14} /> Added</span>
       ) : (
         <button className="add-btn" onClick={add} disabled={busy} type="button">
-          {busy ? <span className="spin" /> : '+ Add'}
+          {busy ? <span className="spin" /> : <><Icon name="plus" size={14} /> Add</>}
         </button>
       )}
     </div>
   )
 }
 
-function SpacePanel({
-  space,
-  onChanged,
-}: {
-  space: SpaceResponse | null
-  onChanged: () => void
-}) {
+function SpacePanel({ space, onChanged }: { space: SpaceResponse | null; onChanged: () => void }) {
   const agents = space?.agents ?? []
   return (
     <div className="panel">
-      <div className="panel-head">
-        <h2>
-          <span className="ico">🔐</span> Behind the Bolt
-        </h2>
-        <span className="meta">{space?.count ?? 0} seated</span>
-      </div>
+      <PanelHead icon="shield" title="Your space" meta={`${space?.count ?? 0} agents`} />
       <div className="panel-body">
         {agents.length === 0 && (
           <div className="empty">
-            <BoltGlyph size={26} />
-            Nothing seated yet — add an agent from the marketplace and it locks in here.
+            <span className="glyph"><Icon name="shield" size={22} /></span>
+            No agents yet — add one from the marketplace to route intents through it.
           </div>
         )}
         {agents.map((s) => (
@@ -408,7 +343,6 @@ function SpacePanel({
 type Readiness = 'checking' | 'ready' | 'typed' | 'offline'
 
 function SpaceCard({ s, onChanged }: { s: SpaceAgent; onChanged: () => void }) {
-  const [imgOk, setImgOk] = useState(true)
   const [busy, setBusy] = useState(false)
   const [contract, setContract] = useState<ResolveResponse | null>(null)
   const [resolving, setResolving] = useState(false)
@@ -417,7 +351,6 @@ function SpaceCard({ s, onChanged }: { s: SpaceAgent; onChanged: () => void }) {
   const [readyReason, setReadyReason] = useState('')
   const gate = s.policy.always_gate
 
-  // Auto-resolve on mount so readiness shows before any click (problem #1).
   useEffect(() => {
     let alive = true
     setReadiness('checking')
@@ -429,10 +362,10 @@ function SpaceCard({ s, onChanged }: { s: SpaceAgent; onChanged: () => void }) {
           setReadyReason('')
         } else if (r.found && r.status === 'active') {
           setReadiness('typed')
-          setReadyReason('active but no chat protocol — may not reply in chat')
+          setReadyReason('Active, but no chat protocol — may not reply in chat.')
         } else {
           setReadiness('offline')
-          setReadyReason(r.error || (r.found ? `status: ${r.status}` : 'inactive — not in the almanac'))
+          setReadyReason(r.error || (r.found ? `Status: ${r.status}` : 'Inactive — not in the almanac.'))
         }
       })
       .catch((e) => {
@@ -479,16 +412,10 @@ function SpaceCard({ s, onChanged }: { s: SpaceAgent; onChanged: () => void }) {
   return (
     <div className="space-wrap">
       <div className="route-card">
-        {s.avatar && imgOk ? (
-          <img className={`mk-ava ${flaky ? 'flaky' : ''}`} src={s.avatar} alt="" onError={() => setImgOk(false)} />
-        ) : (
-          <div className={`mk-ava ${flaky ? 'flaky' : ''}`}>🤖</div>
-        )}
+        <Avatar src={s.avatar} flaky={flaky} />
         <div className="route-main">
           <div className="route-name">
-            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {s.name}
-            </span>
+            <span className="nm">{s.name}</span>
             {s.domain && <span className="kind planner">{s.domain}</span>}
             <span style={{ marginLeft: 'auto' }}>
               <ReadinessChip readiness={readiness} />
@@ -496,7 +423,7 @@ function SpaceCard({ s, onChanged }: { s: SpaceAgent; onChanged: () => void }) {
           </div>
           <div className="route-sub">
             <span className={`gate-badge ${gate ? 'hard' : ''}`}>
-              <BoltGlyph size={14} locked={gate} /> {s.policy.summary}
+              <Icon name="lock" size={13} /> {s.policy.summary}
             </span>
           </div>
           {s.sample_decision && (
@@ -510,19 +437,14 @@ function SpaceCard({ s, onChanged }: { s: SpaceAgent; onChanged: () => void }) {
             <div className="ready-reason">{readyReason}</div>
           )}
         </div>
-        <button
-          className={`x-btn chat ${chatOpen ? 'on' : ''}`}
-          onClick={() => setChatOpen((v) => !v)}
-          type="button"
-          title="Chat with this agent"
-        >
-          💬
+        <button className={`icon-btn chat ${chatOpen ? 'on' : ''}`} onClick={() => setChatOpen((v) => !v)} type="button" title="Chat with this agent">
+          <Icon name="message" size={16} />
         </button>
-        <button className="x-btn" onClick={inspect} disabled={resolving} type="button" title="Resolve contract">
-          {resolving ? <span className="spin" /> : '⌕'}
+        <button className="icon-btn" onClick={inspect} disabled={resolving} type="button" title="Resolve contract">
+          {resolving ? <span className="spin" /> : <Icon name="search" size={16} />}
         </button>
-        <button className="x-btn del" onClick={remove} disabled={busy} type="button" title="Remove from space">
-          {busy ? <span className="spin" /> : '✕'}
+        <button className="icon-btn del" onClick={remove} disabled={busy} type="button" title="Remove from space">
+          {busy ? <span className="spin" /> : <Icon name="trash" size={16} />}
         </button>
       </div>
       {contract && <ContractView c={contract} />}
@@ -533,14 +455,12 @@ function SpaceCard({ s, onChanged }: { s: SpaceAgent; onChanged: () => void }) {
 
 function ReadinessChip({ readiness }: { readiness: Readiness }) {
   if (readiness === 'checking')
-    return (
-      <span className="ready-chip checking">
-        <span className="spin scan" /> checking…
-      </span>
-    )
-  if (readiness === 'ready') return <span className="ready-chip ready">✓ ready</span>
-  if (readiness === 'typed') return <span className="ready-chip typed">⚠ typed-only</span>
-  return <span className="ready-chip offline">⚠ may not respond</span>
+    return <span className="ready-chip checking"><span className="spin" /> checking</span>
+  if (readiness === 'ready')
+    return <span className="ready-chip ready"><Icon name="check" size={13} /> ready</span>
+  if (readiness === 'typed')
+    return <span className="ready-chip typed"><Icon name="alert" size={13} /> typed-only</span>
+  return <span className="ready-chip offline"><Icon name="alert" size={13} /> may not respond</span>
 }
 
 function ChatBox({ address, onInspect }: { address: string; onInspect: () => void }) {
@@ -569,40 +489,32 @@ function ChatBox({ address, onInspect }: { address: string; onInspect: () => voi
           onChange={(e) => setMsg(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && send()}
           placeholder="Send an intent to this agent…"
+          aria-label="Message to the agent"
         />
-        <button onClick={send} disabled={busy} type="button">
-          {busy ? <span className="spin" /> : 'Send'}
-        </button>
+        <button onClick={send} disabled={busy} type="button">{busy ? <span className="spin" /> : 'Send'}</button>
       </div>
-      {busy && <div className="loading">posting intent → awaiting agent reply…</div>}
+      {busy && <div className="loading"><span className="spin" /> posting intent — awaiting reply…</div>}
       {resp &&
         (resp.ok ? (
           <div className="chat-reply">
-            <div className="chat-from">↳ {resp.agent_name} replied</div>
+            <div className="chat-from"><Icon name="check" size={13} /> {resp.agent_name} replied</div>
             <div className="chat-text">{resp.reply}</div>
           </div>
         ) : /no reply|not reachable|did not respond|offline/i.test(resp.message || '') ? (
           <div className="chat-noreply">
-            <span className="noreply-tag">NO REPLY</span>
+            <span className="tag-line"><Icon name="alert" size={12} /> NO REPLY</span>
             <div className="lead">
-              The agent didn’t answer in time. It’s reachable for lookups but its reply
-              isn’t routing back — it may be slow, or the orchestrator’s return path needs
-              a fresh public endpoint. Try again in a moment.
+              The agent didn’t answer in time. It’s reachable for lookups but its reply isn’t
+              routing back — it may be slow, or the orchestrator’s return path needs a fresh
+              public endpoint. Try again in a moment.
             </div>
           </div>
         ) : (
           <div className="chat-broken">
-            <span className="broken-tag">NO VALID REPLY</span>
+            <span className="tag-line"><Icon name="alert" size={12} /> NO VALID REPLY</span>
             <div className="lead">This agent looks broken — it returned a malformed reply.</div>
             {resp.message && <div className="raw">{resp.message}</div>}
-            <div style={{ marginTop: 6 }}>
-              <a
-                onClick={onInspect}
-                style={{ color: 'var(--scan)', cursor: 'pointer', fontSize: 12 }}
-              >
-                resolve contract ↗
-              </a>
-            </div>
+            <span className="link" onClick={onInspect}><Icon name="search" size={12} /> resolve contract</span>
           </div>
         ))}
     </div>
@@ -613,7 +525,7 @@ function ContractView({ c }: { c: ResolveResponse }) {
   if (c.error || !c.found) {
     return (
       <div className="contract">
-        <span className="muted">⌕ couldn’t resolve — {c.error || 'not found'}</span>
+        <span className="muted">Couldn’t resolve — {c.error || 'not found'}</span>
       </div>
     )
   }
@@ -626,15 +538,13 @@ function ContractView({ c }: { c: ResolveResponse }) {
       </div>
       <div className="contract-line">
         {c.speaks_chat ? (
-          <span className="ok-text">✓ speaks chat protocol — reachable with zero per-agent models</span>
+          <span className="ok-text">Speaks chat protocol — reachable with zero per-agent models</span>
         ) : (
-          <span className="muted">typed-only — needs manifest/README models</span>
+          <span className="muted">Typed-only — needs manifest / README models</span>
         )}
       </div>
       {c.endpoint && (
-        <div className="contract-line mk-addr" title={c.endpoint}>
-          ↳ {c.endpoint}
-        </div>
+        <div className="contract-line mk-addr" title={c.endpoint}>{c.endpoint}</div>
       )}
     </div>
   )
@@ -643,39 +553,26 @@ function ContractView({ c }: { c: ResolveResponse }) {
 function RoutesPanel({ agents }: { agents: AgentsResponse | null }) {
   return (
     <div className="panel">
-      <div className="panel-head">
-        <h2>
-          <span className="ico">🔗</span> Wired Routes
-        </h2>
-        <span className="meta">{agents?.count ?? 0} active</span>
-      </div>
+      <PanelHead icon="branch" title="Wired routes" meta={`${agents?.count ?? 0} active`} />
       <div className="panel-body">
-        {!agents && <div className="loading">Loading routes…</div>}
+        {!agents && <div className="loading"><span className="spin" /> loading routes…</div>}
         {agents?.agents.map((r) => (
           <div className="route-card" key={r.id}>
-            {r.avatar ? (
-              <img className="mk-ava" src={r.avatar} alt="" />
-            ) : (
-              <div className="mk-ava">🤖</div>
-            )}
+            <Avatar src={r.avatar} />
             <div className="route-main">
               <div className="route-name">
-                {r.name}
+                <span className="nm">{r.name}</span>
                 <span className={`kind ${r.type}`}>{r.type}</span>
               </div>
               <div className="route-sub">
                 <span className="muted">on “{r.intent}”</span> · {r.domain}
-                {r.interactions > 0 && <> · ⚡ {nfmt(r.interactions)}</>}
+                {r.interactions > 0 && <> · <Icon name="zap" size={12} style={{ verticalAlign: '-2px' }} /> {nfmt(r.interactions)}</>}
               </div>
             </div>
-            <span className={`pill ${r.status === 'online' ? 'ok' : 'routing'}`}>
-              {r.status}
-            </span>
+            <span className={`pill ${r.status === 'online' ? 'ok' : 'routing'}`}>{r.status}</span>
           </div>
         ))}
-        {agents && agents.count === 0 && (
-          <div className="empty">No routes wired yet.</div>
-        )}
+        {agents && agents.count === 0 && <div className="empty">No routes wired yet.</div>}
         <TestIntent />
       </div>
     </div>
@@ -701,21 +598,13 @@ function TestIntent() {
   }
 
   return (
-    <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border-soft)' }}>
-      <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 8 }}>
-        ▶ Send a test intent through the gate
-      </div>
+    <div className="testbar">
+      <div className="label"><Icon name="send" size={14} /> Send a test intent through the gate</div>
       <div className="search">
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="order milk…" />
-        <button onClick={fire} disabled={busy} type="button">
-          {busy ? <span className="spin" /> : 'Run'}
-        </button>
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="order milk…" aria-label="Test intent" />
+        <button onClick={fire} disabled={busy} type="button">{busy ? <span className="spin" /> : 'Run'}</button>
       </div>
-      {last && (
-        <div className="muted" style={{ fontSize: 12, marginTop: 8, fontFamily: 'var(--mono)' }}>
-          {last}
-        </div>
-      )}
+      {last && <div className="result">{last}</div>}
     </div>
   )
 }
@@ -735,24 +624,23 @@ function IntentsPanel({ intents }: { intents: IntentsResponse | null }) {
 
   return (
     <div className="panel">
-      <div className="panel-head">
-        <h2>
-          <span className="ico">📡</span> Intent Feed
-        </h2>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span className="meta">live · {rows.length}</span>
-          {rows.length > 0 && (
-            <button className="clear-btn" onClick={clear} disabled={clearing} type="button" title="Clear the intent feed">
-              {clearing ? <span className="spin" /> : 'clear'}
-            </button>
-          )}
-        </span>
-      </div>
+      <PanelHead
+        icon="activity"
+        title="Intent feed"
+        meta={
+          <>
+            <span>live · {rows.length}</span>
+            {rows.length > 0 && (
+              <button className="clear-btn" onClick={clear} disabled={clearing} type="button" title="Clear the intent feed">
+                {clearing ? <span className="spin" /> : <><Icon name="trash" size={12} /> clear</>}
+              </button>
+            )}
+          </>
+        }
+      />
       <div className="panel-body">
         {rows.length === 0 && (
-          <div className="empty">
-            The line is quiet — run a test intent above to watch it cross the gate.
-          </div>
+          <div className="empty">No intents yet — send a test intent to watch it route through the gate.</div>
         )}
         {rows.length > 0 && (
           <div className="intent-head">
@@ -765,9 +653,7 @@ function IntentsPanel({ intents }: { intents: IntentsResponse | null }) {
           <div className="intent-row" key={r.session_id}>
             <span className="seq">#{r.seq}</span>
             <div style={{ minWidth: 0 }}>
-              <div className="intent-q" title={r.query}>
-                {r.query}
-              </div>
+              <div className="intent-q" title={r.query}>{r.query}</div>
               <div className="intent-meta">
                 {r.origin} · {r.intent || '—'}
                 {r.product_count > 0 && ` · ${r.product_count} items`}

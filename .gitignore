@@ -5,6 +5,8 @@
 
 # Python
 agent/.venv/
+.venv/
+deadbolt/.venv/
 __pycache__/
 *.py[cod]
 .pytest_cache/
@@ -25,6 +27,7 @@ out/
 # Runtime artifacts
 /tmp/
 agent/*.png
+deadbolt/space.json
 
 # TypeScript incremental build cache
 *.tsbuildinfo
