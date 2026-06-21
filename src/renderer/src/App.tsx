@@ -63,13 +63,14 @@ export default function App() {
         <div className="drag-region" />
         <SpeechCloud visible={cloudVisible} text={cloudText} />
         <Sunny emotion={emotion} amplitudeRef={voice.amplitudeRef} />
-        <VoiceToggle
-          enabled={voice.enabled}
-          listening={voice.listening}
-          speaking={voice.speaking}
-          onToggle={voice.toggle}
-        />
       </div>
+
+      <VoiceToggle
+        enabled={voice.enabled}
+        listening={voice.listening}
+        speaking={voice.speaking}
+        onToggle={voice.toggle}
+      />
 
       <div className="dock">
         <ActivityLog

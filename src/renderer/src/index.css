@@ -31,8 +31,6 @@ body {
 
 .app {
   position: relative;
-  display: flex;
-  flex-direction: column;
   height: 100%;
 }
 
@@ -66,13 +64,19 @@ body {
 }
 
 /* ---- Sunny + speech cloud ---- */
+/* Avatar zone: fills the window above the mic, with the cloud + robot centered. */
 .sunny-stage {
-  position: relative;
-  flex: 1;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 84px; /* leave room for the floating mic */
   display: flex;
-  align-items: flex-end;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  min-height: 0;
+  gap: 6px;
+  padding: 12px;
 }
 
 .drag-region {
@@ -107,13 +111,11 @@ body {
   opacity: var(--pulse, 0.7);
 }
 
-/* Speech cloud — puffy, trails up from the mouth, large readable captions. */
+/* Speech cloud — puffy, sits above the head, large readable captions. */
 .cloud {
-  position: absolute;
-  top: 6px;
-  left: 50%;
-  transform: translateX(-50%);
-  max-width: 280px;
+  position: relative;
+  max-width: 300px;
+  margin-bottom: 4px;
   z-index: 3;
   animation: cloud-in 0.32s ease;
   -webkit-app-region: no-drag;
@@ -155,14 +157,14 @@ body {
 }
 
 @keyframes cloud-in {
-  from { opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.96); }
-  to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+  from { opacity: 0; transform: translateY(8px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 /* ---- Floating mic button (always visible; primary entry to voice) ---- */
 .voice-btn {
   position: absolute;
-  bottom: 8px;
+  bottom: 16px;
   left: 50%;
   transform: translateX(-50%);
   width: 56px;
@@ -204,8 +206,12 @@ body {
 
 /* ---- Control dock (reveals on hover; voice is the primary path) ---- */
 .dock {
-  position: relative;
-  margin: 0 10px 10px;
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 84px; /* float just above the mic, don't reserve layout space */
+  max-height: calc(100% - 100px);
+  overflow-y: auto;
   padding: 10px;
   display: flex;
   flex-direction: column;
