@@ -5,9 +5,19 @@ then shows you a screenshot of the result and talks you through what it did.
 
 - **Avatar** — an expressive 3D companion (Ready Player Me + React Three Fiber) that idles,
   blinks, and "talks" while it works.
-- **Brain** — Claude (Anthropic) plans the task; UI-TARS-1.5-7B (via OpenRouter) grounds each
-  action to on-screen coordinates, orchestrated by [Simular Agent-S](https://github.com/simular-ai/Agent-S).
+- **Brain** — by default, Claude's native **computer-use** loop: one model call per step where
+  Claude looks at the screen, reasons, and acts (it grounds itself). [Simular Agent-S](https://github.com/simular-ai/Agent-S)
+  (Claude planner + UI-TARS grounding) is available as an alternate engine.
 - **Body** — an Electron app whose Python sidecar drives the mouse and keyboard.
+
+## Engines
+
+Set `SHADOW_ENGINE` in `.env`:
+
+| `SHADOW_ENGINE` | How it works | Notes |
+|---|---|---|
+| `native` *(default)* | Anthropic computer-use — **one** Claude call per step; Claude grounds itself | Fastest and most coherent. Needs only `ANTHROPIC_API_KEY`. Tune `SHADOW_EFFORT` (low/medium/high/max) and `SHADOW_GEN_MODEL` (e.g. `claude-sonnet-4-6` for more speed). |
+| `agent-s` | Simular Agent-S — Claude plans, UI-TARS grounds, with optional reflection | More moving parts and slower (≈4 model calls/step). Needs `OPENROUTER_API_KEY`; set `SHADOW_REFLECTION=1` to re-enable per-step reflection. |
 
 ## Architecture
 

@@ -18,6 +18,9 @@ OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 class Config:
     anthropic_api_key: str
     openrouter_api_key: str
+    engine: str
+    effort: str
+    reflection: bool
     gen_model: str
     ground_model: str
     max_steps: int
@@ -34,13 +37,19 @@ class Config:
         return cls(
             anthropic_api_key=os.getenv("ANTHROPIC_API_KEY", "").strip(),
             openrouter_api_key=os.getenv("OPENROUTER_API_KEY", "").strip(),
+            # "native" = Anthropic computer-use (one call/step, fast); "agent-s" = Simular Agent-S.
+            engine=os.getenv("SHADOW_ENGINE", "native").strip().lower(),
+            # Thinking/spend dial for the native engine: low | medium | high | max.
+            effort=os.getenv("SHADOW_EFFORT", "medium").strip(),
+            # Agent-S reflection adds an LLM call per step; off by default for speed.
+            reflection=os.getenv("SHADOW_REFLECTION", "0").strip() not in ("", "0", "false", "False"),
             gen_model=os.getenv("SHADOW_GEN_MODEL", "claude-opus-4-8").strip(),
             ground_model=os.getenv("SHADOW_GROUND_MODEL", "bytedance/ui-tars-1.5-7b").strip(),
             # Hard cap on agent loop iterations (runaway/cost guard).
             max_steps=int(os.getenv("SHADOW_MAX_TRAJECTORY", "15")),
             # How many recent screenshots Agent-S keeps in its context window.
-            traj_window=int(os.getenv("SHADOW_TRAJ_WINDOW", "8")),
-            action_delay=float(os.getenv("SHADOW_ACTION_DELAY", "0.5")),
+            traj_window=int(os.getenv("SHADOW_TRAJ_WINDOW", "5")),
+            action_delay=float(os.getenv("SHADOW_ACTION_DELAY", "0.4")),
             # Local HTTP endpoint for middleware to POST instructions.
             http_host=os.getenv("SHADOW_HTTP_HOST", "127.0.0.1").strip(),
             http_port=int(os.getenv("SHADOW_HTTP_PORT", "8765")),

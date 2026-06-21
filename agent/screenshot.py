@@ -29,6 +29,18 @@ def capture_obs(screen_w: int, screen_h: int) -> tuple[dict, int, int]:
     return {"screenshot": buf.getvalue()}, sw, sh
 
 
+def capture_scaled_b64(screen_w: int, screen_h: int) -> tuple[str, int, int]:
+    """Capture the screen resized to the reported display size; return (base64, w, h).
+
+    Used by the native computer-use loop — Claude reports coordinates in this space.
+    """
+    sw, sh = scaled_dims(screen_w, screen_h)
+    img = capture_image().resize((sw, sh), Image.LANCZOS)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return base64.standard_b64encode(buf.getvalue()).decode(), sw, sh
+
+
 def capture_image():
     """Grab the current screen as a PIL image.
 

@@ -23,9 +23,17 @@ sys.stdout = sys.stderr
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from agent_runner import AgentRunner  # noqa: E402
 from config import Config  # noqa: E402
 from http_server import start_http  # noqa: E402
+
+
+def build_runner(cfg: Config):
+    """Pick the automation engine: native computer-use (default) or Agent-S."""
+    if cfg.engine == "agent-s":
+        from agent_runner import AgentRunner
+        return AgentRunner(cfg)
+    from native_engine import NativeRunner
+    return NativeRunner(cfg)
 
 
 class Sidecar:
@@ -76,7 +84,7 @@ class Sidecar:
 
             try:
                 if self._runner is None:
-                    self._runner = AgentRunner(Config.load())
+                    self._runner = build_runner(Config.load())
                 self._runner.run(instruction, emit, should_cancel=self._cancel.is_set)
             except Exception as exc:
                 emit({"type": "error", "code": "unknown", "message": str(exc)})

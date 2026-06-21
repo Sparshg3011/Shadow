@@ -86,7 +86,7 @@ class AgentRunner:
             grounding,
             platform="darwin",
             max_trajectory_length=cfg.traj_window,
-            enable_reflection=True,
+            enable_reflection=cfg.reflection,  # off by default for speed
         )
 
     def run(self, instruction: str, emit: Emit, should_cancel: Callable[[], bool] = lambda: False):

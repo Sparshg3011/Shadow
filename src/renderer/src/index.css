@@ -190,7 +190,7 @@ canvas {
 
 .step {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   gap: 8px;
   font-size: 13px;
   padding: 6px 10px;
@@ -215,10 +215,9 @@ canvas {
 }
 
 .step-detail {
+  flex: 1;
   color: var(--muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.4;
 }
 
 .result {
