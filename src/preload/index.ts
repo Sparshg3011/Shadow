@@ -19,9 +19,9 @@ export type AgentEvent =
   | { type: 'cancelled'; id?: string }
 
 const api = {
-  /** Start a task; resolves with the task id. */
-  runTask: (instruction: string): Promise<string> =>
-    ipcRenderer.invoke('agent:runTask', instruction),
+  /** Start a task in the given help mode; resolves with the task id. */
+  runTask: (instruction: string, mode: 'hands-on' | 'side-by-side' | 'cheering' = 'hands-on'): Promise<string> =>
+    ipcRenderer.invoke('agent:runTask', instruction, mode),
 
   /** Cancel a running task. */
   cancel: (id: string): void => ipcRenderer.send('agent:cancel', id),

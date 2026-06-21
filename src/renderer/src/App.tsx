@@ -1,9 +1,11 @@
 import { useEffect, useRef } from 'react'
 import { useAgent } from './hooks/useAgent'
+import { useHelpMode } from './hooks/useHelpMode'
 import { useVoice } from './voice/useVoice'
 import { Sunny, type SunnyEmotion } from './components/Sunny'
 import { SpeechCloud } from './components/SpeechCloud'
 import { VoiceToggle } from './components/VoiceToggle'
+import { HelpDial } from './components/HelpDial'
 import { InstructionInput } from './components/InstructionInput'
 import { ActivityLog } from './components/ActivityLog'
 import { ResultView } from './components/ResultView'
@@ -26,7 +28,8 @@ export default function App() {
     return <EmotionGallery />
   }
 
-  const agent = useAgent()
+  const { mode, setMode } = useHelpMode()
+  const agent = useAgent(mode)
   const voice = useVoice(agent.run)
 
   // Speak each new result aloud (only while voice is on).
@@ -65,6 +68,7 @@ export default function App() {
       </div>
 
       <div className="dock">
+        <HelpDial mode={mode} onChange={setMode} />
         <ActivityLog
           state={agent.state}
           running={agent.running}

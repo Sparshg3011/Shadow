@@ -49,9 +49,9 @@ class Sidecar:
         _OUT.write(json.dumps(event) + "\n")
         _OUT.flush()
 
-    def enqueue(self, instruction: str, source: str) -> str:
+    def enqueue(self, instruction: str, source: str, mode: str = "hands-on") -> str:
         task_id = str(uuid.uuid4())
-        self._queue.put((task_id, instruction))
+        self._queue.put((task_id, instruction, mode))
         self.send({"type": "queued", "id": task_id, "instruction": instruction, "source": source})
         return task_id
 
@@ -60,7 +60,7 @@ class Sidecar:
         task_id = str(uuid.uuid4())
         done = threading.Event()
         self._events[task_id] = done
-        self._queue.put((task_id, instruction))
+        self._queue.put((task_id, instruction, "hands-on"))
         self.send({"type": "queued", "id": task_id, "instruction": instruction, "source": "api"})
 
         finished = done.wait(timeout)
@@ -85,7 +85,7 @@ class Sidecar:
         ctype = cmd.get("type")
         if ctype == "run_task":
             task_id = cmd.get("id") or str(uuid.uuid4())
-            self._queue.put((task_id, cmd.get("instruction", "")))
+            self._queue.put((task_id, cmd.get("instruction", ""), cmd.get("mode", "hands-on")))
             self.send({"type": "queued", "id": task_id,
                        "instruction": cmd.get("instruction", ""), "source": "ui"})
         elif ctype == "cancel":
@@ -103,7 +103,7 @@ class Sidecar:
 
     def _worker(self):
         while True:
-            task_id, instruction = self._queue.get()
+            task_id, instruction, mode = self._queue.get()
             self._current_id = task_id
             self._cancel.clear()
 
@@ -119,7 +119,7 @@ class Sidecar:
             try:
                 if self._runner is None:
                     self._runner = build_runner(Config.load())
-                self._runner.run(instruction, emit, should_cancel=self._cancel.is_set)
+                self._runner.run(instruction, emit, should_cancel=self._cancel.is_set, mode=mode)
             except Exception as exc:
                 emit({"type": "error", "code": "unknown", "message": str(exc)})
             finally:

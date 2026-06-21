@@ -107,9 +107,9 @@ app.whenReady().then(() => {
     cb(permission === 'media')
   })
 
-  ipcMain.handle('agent:runTask', (_e, instruction: string) => {
+  ipcMain.handle('agent:runTask', (_e, instruction: string, mode = 'hands-on') => {
     const id = randomUUID()
-    sendToSidecar({ type: 'run_task', id, instruction })
+    sendToSidecar({ type: 'run_task', id, instruction, mode })
     return id
   })
   ipcMain.on('agent:cancel', (_e, id: string) => sendToSidecar({ type: 'cancel', id }))

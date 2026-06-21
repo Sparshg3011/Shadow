@@ -90,7 +90,8 @@ class AgentRunner:
             enable_reflection=cfg.reflection,  # off by default for speed
         )
 
-    def run(self, instruction: str, emit: Emit, should_cancel: Callable[[], bool] = lambda: False):
+    def run(self, instruction: str, emit: Emit, should_cancel: Callable[[], bool] = lambda: False,
+            mode: str = "hands-on"):  # mode is honored by the native engine; Agent-S runs hands-on
         """Run a task to completion, emitting events. Never raises."""
         try:
             self._run(instruction, emit, should_cancel)

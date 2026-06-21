@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { AgentEvent } from '../ipc'
+import type { AgentEvent, HelpMode } from '../ipc'
 
 export type AvatarState = 'idle' | 'thinking' | 'talking'
 
@@ -35,7 +35,7 @@ export interface UseAgent {
 
 const TALK_MS = 6000 // how long the avatar "speaks" the summary before idling
 
-export function useAgent(): UseAgent {
+export function useAgent(mode: HelpMode = 'hands-on'): UseAgent {
   const [state, setState] = useState<AvatarState>('idle')
   const [steps, setSteps] = useState<Step[]>([])
   const [result, setResult] = useState<AgentResult | null>(null)
@@ -46,6 +46,9 @@ export function useAgent(): UseAgent {
   const taskId = useRef<string | null>(null)
   const cancelledId = useRef<string | null>(null)
   const talkTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Keep the latest mode without rebinding run() (voice calls the same run).
+  const modeRef = useRef<HelpMode>(mode)
+  modeRef.current = mode
 
   useEffect(() => {
     if (!window.shadow) return
@@ -117,7 +120,7 @@ export function useAgent(): UseAgent {
     setRunning(true)
     setCurrent(text)
     setState('thinking')
-    taskId.current = (await window.shadow?.runTask(text)) ?? null
+    taskId.current = (await window.shadow?.runTask(text, modeRef.current)) ?? null
   }, [])
 
   const cancel = useCallback(() => {

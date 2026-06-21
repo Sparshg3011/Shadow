@@ -74,6 +74,17 @@ _NUDGE = (
     "take a clearly different action or, if the task cannot be done, stop and explain."
 )
 
+# Side by Side: still do the task, but narrate each step so the person learns.
+SIDE_BY_SIDE_PROMPT = """TEACHING MODE: The person is watching to learn. Before each action, say in ONE short, \
+plain sentence what you are about to do and why — like a patient friend showing them, not a manual. Go one \
+step at a time and keep it jargon-free (say "the blue Send button", not "the submit control")."""
+
+# Cheering You On: the user does it themselves; Sunny only coaches the next step.
+COACH_PROMPT = """You are Sunny, a warm, patient guide for an older adult who wants to do this THEMSELVES on \
+their Mac. Look at the screenshot and tell them the SINGLE next step to take, in one short, encouraging \
+sentence with no jargon. Name exactly what to click or type and roughly where it is on screen ("the blue \
+Send button, bottom-right"). Never do it for them — you are only cheering them on and pointing the way."""
+
 
 def _sig(inp: dict) -> str:
     """A signature identifying an action, for loop detection."""
@@ -87,16 +98,20 @@ class NativeRunner:
         self.screen = tuple(pyautogui.size())
         self.scaled = scaled_dims(*self.screen, cfg.display_max)
 
-    def run(self, instruction: str, emit: Emit, should_cancel: Callable[[], bool] = lambda: False):
+    def run(self, instruction: str, emit: Emit, should_cancel: Callable[[], bool] = lambda: False,
+            mode: str = "hands-on"):
         try:
-            self._run(instruction, emit, should_cancel)
+            if mode == "cheering":
+                self._coach(instruction, emit, should_cancel)  # guide only, never act
+            else:
+                self._run(instruction, emit, should_cancel, mode)
         except CaptureError:
             emit(_permission_error())
         except Exception as exc:
             traceback.print_exc(file=sys.stderr)
             emit({"type": "error", "code": _error_code(exc), "message": str(exc)})
 
-    def _run(self, instruction: str, emit: Emit, should_cancel: Callable[[], bool]):
+    def _run(self, instruction: str, emit: Emit, should_cancel: Callable[[], bool], mode: str = "hands-on"):
         if not self.cfg.anthropic_api_key:
             emit({"type": "error", "code": "api", "message": "ANTHROPIC_API_KEY is not set"})
             return
@@ -110,7 +125,8 @@ class NativeRunner:
             "display_width_px": self.scaled[0],
             "display_height_px": self.scaled[1],
         }]
-        system = [{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}]
+        prompt = SYSTEM_PROMPT + ("\n\n" + SIDE_BY_SIDE_PROMPT if mode == "side-by-side" else "")
+        system = [{"type": "text", "text": prompt, "cache_control": {"type": "ephemeral"}}]
         # Seed the first screenshot so the agent can act immediately (saves a step).
         messages = [{"role": "user", "content": [
             {"type": "text", "text": instruction},
@@ -187,6 +203,36 @@ class NativeRunner:
             emit({"type": "status", "state": "thinking"})
 
         self._done(emit, instruction, (last_text + " (reached the step limit)").strip())
+
+    def _coach(self, instruction: str, emit: Emit, should_cancel: Callable[[], bool]):
+        """Cheering You On: look at the screen and coach the next step — never act."""
+        if not self.cfg.anthropic_api_key:
+            emit({"type": "error", "code": "api", "message": "ANTHROPIC_API_KEY is not set"})
+            return
+        if looks_blank():
+            emit(_permission_error())
+            return
+        emit({"type": "status", "state": "thinking"})
+        shot = capture_resized_b64(*self.scaled)
+        if should_cancel():
+            emit({"type": "cancelled"})
+            return
+        resp = self.client.beta.messages.create(
+            model=self.cfg.gen_model,
+            max_tokens=400,
+            system=COACH_PROMPT,
+            thinking={"type": "adaptive"},
+            output_config={"effort": "low"},
+            messages=[{"role": "user", "content": [
+                {"type": "text", "text": f"I want to: {instruction}. What is the one next step I should do?"},
+                {"type": "image",
+                 "source": {"type": "base64", "media_type": "image/png", "data": shot}},
+            ]}],
+        )
+        tip = " ".join(b.text for b in resp.content if b.type == "text").strip()
+        emit({"type": "done", "screenshot": shot,
+              "summary": tip or "Take a look at the screen and tell me what you'd like to do first.",
+              "verdict": "approved", "reason": ""})
 
     def _generate(self, messages, system, tools, should_cancel):
         """Stream one response so a stop can abort it mid-generation (instead of

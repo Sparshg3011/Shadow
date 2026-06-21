@@ -22,8 +22,11 @@ export interface DeepgramCredential {
   mode: 'access' | 'key'
 }
 
+/** How much help Sunny gives — the "How much help?" dial. */
+export type HelpMode = 'hands-on' | 'side-by-side' | 'cheering'
+
 export interface ShadowApi {
-  runTask(instruction: string): Promise<string>
+  runTask(instruction: string, mode?: HelpMode): Promise<string>
   cancel(id: string): void
   onEvent(cb: (event: AgentEvent) => void): () => void
   setIgnoreMouseEvents(ignore: boolean, opts?: { forward?: boolean }): void

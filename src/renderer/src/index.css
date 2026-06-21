@@ -236,6 +236,55 @@ body {
   pointer-events: auto;
 }
 
+/* ---- Help dial ("How much help?") ---- */
+.help-dial {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.help-dial-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  padding-left: 2px;
+}
+.help-dial-options {
+  display: flex;
+  gap: 6px;
+}
+.help-opt {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 6px;
+  text-align: center;
+  color: var(--muted);
+  background: rgba(120, 140, 200, 0.08);
+  border: 1.5px solid transparent;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.help-opt:hover {
+  background: rgba(120, 140, 200, 0.14);
+}
+.help-opt.active {
+  color: var(--text);
+  background: rgba(106, 166, 255, 0.14);
+  border-color: var(--accent);
+}
+.help-opt-label {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.15;
+}
+.help-opt-hint {
+  font-size: 10px;
+  line-height: 1.15;
+  opacity: 0.85;
+}
+
 /* ---- Activity ---- */
 .control-banner {
   display: flex;
