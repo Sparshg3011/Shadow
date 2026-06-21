@@ -51,8 +51,8 @@ def _action_label(code: str) -> str:
 
 def _detail(info: dict) -> str:
     """Short, human-readable note about the current step from Agent-S info."""
-    plan = (info or {}).get("executor_plan") or ""
-    line = plan.strip().splitlines()[0] if plan.strip() else ""
+    text = (info or {}).get("plan") or (info or {}).get("reflection") or ""
+    line = text.strip().splitlines()[0] if text.strip() else ""
     return line[:140]
 
 
@@ -64,6 +64,10 @@ class AgentRunner:
         self.screen_w, self.screen_h = pyautogui.size()
         # Grounding dims = the size of the screenshots we actually send.
         self.ground_w, self.ground_h = scaled_dims(self.screen_w, self.screen_h)
+
+        # Make Agent-S's Anthropic engine compatible with current Claude models.
+        import anthropic_patch
+        anthropic_patch.apply()
 
         from gui_agents.s3.agents.agent_s import AgentS3
         from gui_agents.s3.agents.grounding import OSWorldACI
