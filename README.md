@@ -50,8 +50,24 @@ back black and clicks are ignored.
 npm run dev
 ```
 
+Type an instruction (or tap a suggestion chip). Shadow plans the task with Claude, grounds each
+action with UI-TARS, performs it, and shows you a screenshot of the result while the avatar speaks
+a summary. Use **Stop** or flick the mouse to a screen corner to abort at any time.
+
+## Customizing the avatar
+
+The default avatar is bundled, so it works offline. To use your own, create one at
+[readyplayer.me](https://readyplayer.me) and set the GLB URL (include `?morphTargets=ARKit` for
+blink/lip movement):
+
+```bash
+# .env
+VITE_SHADOW_AVATAR_URL=https://models.readyplayer.me/<your-id>.glb?morphTargets=ARKit
+```
+
 ## Credits
 
-3D avatars by [Ready Player Me](https://readyplayer.me) (CC BY-NC-SA). Desktop automation by
-[Simular Agent-S](https://github.com/simular-ai/Agent-S). Grounding by
+Default avatar from the [TalkingHead](https://github.com/met4citizen/TalkingHead) project, created
+with [Ready Player Me](https://readyplayer.me) (CC BY-NC-SA — non-commercial). Desktop automation by
+[Simular Agent-S](https://github.com/simular-ai/Agent-S). Visual grounding by
 [UI-TARS](https://huggingface.co/ByteDance-Seed/UI-TARS-1.5-7B).

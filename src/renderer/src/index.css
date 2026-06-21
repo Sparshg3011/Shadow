@@ -29,11 +29,52 @@ body {
 }
 
 .app {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 16px;
+  padding: 14px;
+  padding-top: 34px;
   gap: 12px;
+}
+
+/* Draggable strip so the frameless window can be moved. */
+.drag-region {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 34px;
+  -webkit-app-region: drag;
+}
+
+button,
+input,
+.chip,
+canvas {
+  -webkit-app-region: no-drag;
+}
+
+/* Suggestion chips */
+.suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  padding: 7px 12px;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.chip:hover {
+  border-color: var(--accent);
+  color: #fff;
 }
 
 /* ---- Avatar stage ---- */

@@ -47,9 +47,11 @@ function sendToSidecar(cmd: object) {
 function createWindow() {
   win = new BrowserWindow({
     width: 420,
-    height: 660,
+    height: 680,
     show: false,
     resizable: true,
+    titleBarStyle: 'hiddenInset',
+    trafficLightPosition: { x: 14, y: 16 },
     backgroundColor: '#0f1117',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
