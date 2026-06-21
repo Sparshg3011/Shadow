@@ -53,6 +53,20 @@ _MODE_NOTE = {
     "cheering": "The user wants to do it THEMSELVES while you coach. Encourage them; you'll point the way, not take over.",
 }
 
+# We ask for JSON in the prompt rather than via output_config.format: structured
+# outputs aren't supported on the plain Messages endpoint and make the call hang.
+_JSON_RULE = (
+    "Respond with ONLY a JSON object (no markdown, no prose) of exactly this shape: "
+    '{"intent": "task" | "chat", "say": "<one or two short sentences>", '
+    '"task": "<one clear instruction, or an empty string for chat>"}.'
+)
+
+
+def _extract_json(s: str) -> str:
+    """Pull the JSON object out of the reply (in case the model adds stray text)."""
+    i, j = s.find("{"), s.rfind("}")
+    return s[i : j + 1] if i != -1 and j > i else s
+
 
 def converse(api_key: str, model: str, message: str, mode: str = "hands-on") -> dict:
     """Return {"intent": "task"|"chat", "say": str, "task": str}.
@@ -65,16 +79,20 @@ def converse(api_key: str, model: str, message: str, mode: str = "hands-on") -> 
         return {"intent": "chat", "say": "I'm listening — what would you like to do?", "task": ""}
 
     try:
-        client = anthropic.Anthropic(api_key=api_key)
-        resp = client.messages.create(
+        # Use the beta Messages endpoint (same one the native engine uses) — the
+        # plain endpoint with output_config/structured-outputs hangs. We ask for
+        # JSON in the prompt instead of via output_config.format. Hard timeout +
+        # capped retries so a slow call can never make Sunny go quiet; the except
+        # below then degrades to "just run it".
+        client = anthropic.Anthropic(api_key=api_key, timeout=15, max_retries=1)
+        resp = client.beta.messages.create(
             model=model,
             max_tokens=300,
-            system=_SYSTEM + "\n\n" + _MODE_NOTE.get(mode, _MODE_NOTE["hands-on"]),
-            output_config={"effort": "low", "format": {"type": "json_schema", "schema": _SCHEMA}},
+            system=_SYSTEM + "\n\n" + _MODE_NOTE.get(mode, _MODE_NOTE["hands-on"]) + "\n\n" + _JSON_RULE,
             messages=[{"role": "user", "content": text}],
         )
         raw = "".join(b.text for b in resp.content if getattr(b, "type", None) == "text")
-        data = json.loads(raw)
+        data = json.loads(_extract_json(raw))
         intent = "task" if data.get("intent") == "task" else "chat"
         say = str(data.get("say", "")).strip()
         task = str(data.get("task", "")).strip()
