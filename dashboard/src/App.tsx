@@ -229,11 +229,11 @@ function MarketplacePanel({
         <div className="mk-list">
           {loading && !data
             ? Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
-            : data?.agents.map((a) => (
+            : (data?.agents ?? []).map((a) => (
                 <MarketCard key={a.address} a={a} inSpace={spaceAddrs.has(a.address)} onChanged={onChanged} />
               ))}
         </div>
-        {!loading && data && data.agents.length === 0 && (
+        {!loading && data && (data.agents?.length ?? 0) === 0 && (
           <div className="empty">No agents found for “{data.query}”.</div>
         )}
 
@@ -349,7 +349,9 @@ function SpaceCard({ s, onChanged }: { s: SpaceAgent; onChanged: () => void }) {
   const [chatOpen, setChatOpen] = useState(false)
   const [readiness, setReadiness] = useState<Readiness>('checking')
   const [readyReason, setReadyReason] = useState('')
-  const gate = s.policy.always_gate
+  // Guard against a policy-less record so one bad agent can't blank the panel.
+  const policy = s.policy ?? { always_gate: false, auto_max_amount: 0, summary: 'No policy' }
+  const gate = policy.always_gate
 
   useEffect(() => {
     let alive = true
@@ -423,14 +425,14 @@ function SpaceCard({ s, onChanged }: { s: SpaceAgent; onChanged: () => void }) {
           </div>
           <div className="route-sub">
             <span className={`gate-badge ${gate ? 'hard' : ''}`}>
-              <Icon name="lock" size={13} /> {s.policy.summary}
+              <Icon name="lock" size={13} /> {policy.summary}
             </span>
           </div>
           {s.sample_decision && (
             <div className={`gate-ledger ${s.sample_decision === 'GATE' ? 'gate' : 'auto'}`}>
               {s.sample_decision === 'GATE'
                 ? `GATE — ${s.sample_reason}`
-                : `AUTO ≤ $${s.policy.auto_max_amount} — ${s.sample_reason}`}
+                : `AUTO ≤ $${policy.auto_max_amount} — ${s.sample_reason}`}
             </div>
           )}
           {(readiness === 'typed' || readiness === 'offline') && readyReason && (
