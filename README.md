@@ -1,4 +1,4 @@
-# Shadow
+# Shadow OS Agent
 
 An animated 3D avatar desktop assistant. Type a task; Shadow controls your Mac to do it,
 then shows you a screenshot of the result and talks you through what it did.
